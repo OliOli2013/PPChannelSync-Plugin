@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-# PP Channel Sync for Enigma2 Python 3
+# PP Channel Sync for Enigma2 Python 2/3
 # Author: by Paweł Pawełek
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import os
 import re
@@ -20,8 +20,11 @@ from collections import OrderedDict
 try:
     from urllib.request import Request, urlopen
 except Exception:
-    Request = None
-    urlopen = None
+    try:
+        from urllib2 import Request, urlopen
+    except Exception:
+        Request = None
+        urlopen = None
 
 from Plugins.Plugin import PluginDescriptor
 from Screens.Screen import Screen
@@ -30,7 +33,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "1.0.16"
+PLUGIN_VERSION = "1.0.17"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -152,7 +155,88 @@ WEEK_SECONDS = 7 * 24 * 60 * 60
 
 
 
+def _system_lang():
+    lang = "pl"
+    try:
+        from Components.config import config
+        lang = str(config.osd.language.value or "pl")
+    except Exception:
+        try:
+            st = read_text("/etc/enigma2/settings")
+            for line in st.splitlines():
+                if line.startswith("config.osd.language="):
+                    lang = line.split("=", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+    return "pl" if str(lang).lower().startswith("pl") else "en"
+
+_LANG = _system_lang()
+
+_TR_EN = {
+    "Standard": "Standard",
+    "Alternatywne": "Alternative",
+    "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list.": "Primary control source. Recommended as the first choice for most lists.",
+    "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę.": "Alternative control source based on Ciefp packages from GitHub. Useful when the standard source does not match your list well.",
+    "Raport bez zapisu": "Report only",
+    "Tylko sprawdza Twoją listę i zapisuje raport. Nic nie zmienia w tunerze.": "Checks your list and saves a report. Nothing is changed on the receiver.",
+    "Bezpieczna korekta techniczna": "Safe technical correction",
+    "Aktualizuje lamedb bazą kontrolną z ochroną lokalnych wpisów, poprawia tylko pewne reference i zachowuje kolejność kanałów w bukietach.": "Updates lamedb using the control base while protecting local entries. Only safe references are corrected and bouquet order is kept.",
+    "Nie": "No",
+    "Nie dopisuje nowych kanałów; wykonuje tylko kontrolę i bezpieczne korekty.": "Does not add new channels; only checks and performs safe corrections.",
+    "Tak - na koniec pasujących bukietów": "Yes - at the end of matching bouquets",
+    "Dopisuje nowe kanały tylko na końcu pasujących, już istniejących bukietów. Nie zmienia kolejności obecnych kanałów i nie tworzy nowych bukietów.": "Adds new channels only at the end of matching existing bouquets. Existing channel order is not changed and no new bouquets are created.",
+    "Tylko raport": "Report only",
+    "Nie usuwa kanałów z Twoich bukietów. Kanały niepewne zostają tylko w raporcie.": "Does not remove channels from your bouquets. Uncertain channels are reported only.",
+    "Wykrywa kanały, których nie ma w bazie kontrolnej, ale nie usuwa ich z listy.": "Detects channels missing from the control base but does not remove them.",
+    "Usuń pewne": "Remove confirmed",
+    "Usuwa wyłącznie pozycje jednoznacznie oznaczone jako nieaktualne w pasującym bukiecie. Używać ostrożnie.": "Removes only entries clearly detected as outdated in a matching bouquet. Use carefully.",
+    "Wyłączona": "Disabled",
+    "Automatyczna aktualizacja jest wyłączona.": "Automatic update is disabled.",
+    "Raz w tygodniu": "Once a week",
+    "Wtyczka raz w tygodniu sama pobiera bazę kontrolną, wykonuje korektę i pokazuje krótkie podsumowanie.": "Once a week the plugin downloads the control base, performs the correction and shows a short summary.",
+    "Po wykryciu nowej bazy": "When a new base is detected",
+    "Wtyczka okresowo sprawdza, czy baza kontrolna zmieniła się od ostatniego sprawdzenia. Jeśli tak, wykonuje korektę i pokazuje podsumowanie.": "The plugin periodically checks whether the control base has changed. If yes, it performs the correction and shows a summary.",
+    "Standard / Alternatywne przełączasz OK albo Lewo/Prawo.": "Switch Standard / Alternative with OK or Left/Right.",
+    "Źródło kontroli": "Control source",
+    "Pakiet kontrolny": "Control package",
+    "Tryb pracy zielonego": "Green button mode",
+    "Dopisywanie nowych kanałów": "Add new channels",
+    "Usuwanie nieaktualnych kanałów": "Remove outdated channels",
+    "Automatyczna aktualizacja": "Automatic update",
+    "Utwórz kopię bezpieczeństwa teraz": "Create backup now",
+    "Przywróć ostatnią kopię bezpieczeństwa": "Restore last backup",
+    "Pokaż ostatni raport": "Show last report",
+    "Pokaż szczegółowy raport zmian": "Show detailed change report",
+    "Aktualizuj wtyczkę z GitHub": "Update plugin from GitHub",
+    "Informacje o działaniu wtyczki": "Plugin information",
+    "Informacje": "Information",
+    "Opis opcji": "Option description",
+    "Wesprzyj": "Support",
+    "Pomóż rozwijać\nlokalne projekty": "Help develop\nlocal projects",
+    "Opcje ustawiasz z listy, a zielony przycisk wykonuje wybrany tryb pracy": "Set options from the list; the green button runs the selected mode",
+    "OK - zmień opcję / otwórz  |  Zielony - wykonaj wybrany tryb  |  MENU - raport  |  EXIT - wyjście": "OK - change/open  |  Green - run selected mode  |  MENU - report  |  EXIT - close",
+    "Czerwony: wyjście": "Red: exit",
+    "Zielony: wykonaj": "Green: run",
+    "Żółty: kopia": "Yellow: backup",
+    "Niebieski: przywróć": "Blue: restore",
+    "Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania.": "Choose a control range matching the list on your receiver.\n\nThe package is only used as a comparison point.",
+    "Zielony przycisk wykonuje wybrany tryb.": "The green button runs the selected mode.",
+    "Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv.": "Creates a backup of lamedb, lamedb5, bouquets.tv and all userbouquet.*.tv files.",
+    "Przywraca ostatnią kopię wykonaną przez PP Channel Sync.": "Restores the last backup created by PP Channel Sync.",
+    "Pokazuje ostatni raport skrócony. MENU działa tak samo z każdego miejsca ekranu.": "Shows the last short report. MENU works the same from anywhere on this screen.",
+    "Pokazuje szczegółowy raport: dodane, usunięte, poprawione i pominięte kanały.": "Shows the detailed report: added, removed, corrected and skipped channels.",
+    "Sprawdza update.json na GitHub, porównuje wersję, pobiera najnowszy plik IPK i instaluje aktualizację.": "Checks update.json on GitHub, compares versions, downloads the newest IPK and installs the update.",
+    "Autor: by Paweł Pawełek\nKontakt: aio-iptv@wp.pl\n\nDVB-T/DVB-C jest pomijane. Wtyczka nie zmienia głowicy, sieci, skina ani rozdzielczości.": "Author: by Paweł Pawełek\nContact: aio-iptv@wp.pl\n\nDVB-T/DVB-C is skipped. The plugin does not change tuner, network, skin or resolution settings.",
+    "Wesprzyj twórczość, pomóż rozwijać lokalne projekty": "Support creativity, help develop local projects",
+}
+
 def _(txt):
+    try:
+        if _LANG == "en":
+            return _TR_EN.get(txt, txt)
+    except Exception:
+        pass
     return txt
 
 
@@ -671,7 +755,7 @@ def cleanup_workdir():
 
 def download_url(url, dest):
     if Request is None or urlopen is None:
-        raise Exception("Brak urllib.request w systemie Python.")
+        raise Exception("Brak obsługi urllib w systemie Python.")
     req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION})
     response = urlopen(req, timeout=60)
     data = response.read()
@@ -684,7 +768,7 @@ def download_url(url, dest):
 
 def fetch_json(url):
     if Request is None or urlopen is None:
-        raise Exception("Brak urllib.request w systemie Python.")
+        raise Exception("Brak obsługi urllib w systemie Python.")
     req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION, "Accept": "application/vnd.github+json"})
     data = urlopen(req, timeout=30).read()
     return json.loads(data.decode("utf-8", "ignore"))
@@ -1280,7 +1364,7 @@ def build_plan(remote, match_mode=None, add_new=True, remove_mode=REMOVE_REPORT)
 def report_header_lines():
     return [
         "by Paweł Pawełek * %s" % CONTACT,
-        "%s." % SUPPORT_TEXT,
+        "%s." % _(SUPPORT_TEXT),
         "",
     ]
 
@@ -1296,7 +1380,7 @@ def write_report(plan, mode, match_mode=None):
     report.append("Dopisywanie nowych kanałów: %s" % ("TAK - tylko na końcu mocno dopasowanych bukietów" if plan.get("add_new") else "NIE"))
     report.append("Usuwanie kanałów: %s" % REMOVE_MODES[plan.get("remove_mode", REMOVE_REPORT)][0])
     report.append("")
-    report.append("Zasada działania v1.0.15:")
+    report.append("Zasada działania v1.0.17:")
     report.append("- układ, kolejność i numeracja obecnych kanałów zostają zachowane,")
     report.append("- wtyczka nie synchronizuje całych bukietów z bazą kontrolną,")
     report.append("- lamedb jest budowany na bazie lokalnego lamedb użytkownika + brakujące wpisy z bazy kontrolnej,")
@@ -1525,10 +1609,9 @@ def clean_bouquet_name_lines(files):
 
 
 def update_main_bouquet_marker():
-    # Aktualizuje widok list bukietów w /etc/enigma2/bouquets.tv:
-    # - usuwa stare wpisy informacyjne autorów/dat,
-    # - nie zmienia nazw właściwych bukietów,
-    # - dodaje jedną informację o korekcie PP Channel Sync + data na samym dole.
+    # Aktualizuje widok list bukietów w /etc/enigma2/bouquets.tv.
+    # v1.0.17: usuwa WSZYSTKIE wcześniejsze wpisy informacyjne PP Channel Sync
+    # oraz stare podpisy/listowe reklamy, a na końcu dodaje tylko jeden aktualny wpis.
     path = os.path.join(E2_PATH, "bouquets.tv")
     if not os.path.isfile(path):
         return 0
@@ -1541,13 +1624,31 @@ def update_main_bouquet_marker():
     i = 0
     while i < len(lines):
         line = lines[i]
-        if is_marker_service(line) and i + 1 < len(lines) and lines[i + 1].startswith("#DESCRIPTION "):
-            desc = lines[i + 1][len("#DESCRIPTION "):].strip()
-            if is_credit_description(desc):
+        next_desc = ""
+        if i + 1 < len(lines) and lines[i + 1].startswith("#DESCRIPTION "):
+            next_desc = lines[i + 1][len("#DESCRIPTION "):].strip()
+
+        # Standardowy blok markerowy: #SERVICE 1:64... + #DESCRIPTION ...
+        if line.startswith("#SERVICE ") and next_desc:
+            if is_marker_service(line) and is_credit_description(next_desc):
                 removed += 1
                 i += 2
                 continue
-        # Nie czyścimy DESCRIPTION właściwych bukietów FROM BOUQUET, bo to są nazwy list użytkownika.
+            # Dodatkowe zabezpieczenie po starych wersjach: jeśli opis jest naszym podpisem,
+            # kasujemy parę nawet przy nietypowym typie serwisu.
+            if re.search(r"pp\s*channel\s*sync", normalize_basic(next_desc)):
+                removed += 1
+                i += 2
+                continue
+
+        # Osierocone opisy po nietypowych edycjach pliku.
+        if line.startswith("#DESCRIPTION "):
+            desc = line[len("#DESCRIPTION "):].strip()
+            if is_credit_description(desc):
+                removed += 1
+                i += 1
+                continue
+
         out.append(line)
         i += 1
 
@@ -2018,17 +2119,17 @@ class PPChannelSyncScreen(Screen):
         except Exception:
             pass
         self["version"] = Label("v%s" % PLUGIN_VERSION)
-        self["status"] = Label("Opcje ustawiasz z listy, a zielony przycisk wykonuje wybrany tryb pracy")
-        self["side_title"] = Label("Informacje")
+        self["status"] = Label(_("Opcje ustawiasz z listy, a zielony przycisk wykonuje wybrany tryb pracy"))
+        self["side_title"] = Label(_("Informacje"))
         self["side_info"] = Label("")
-        self["support_title"] = Label("Wesprzyj")
-        self["support_text"] = Label("Pomóż rozwijać\nlokalne projekty")
-        self["help"] = Label("OK - zmień opcję / otwórz  |  Zielony - wykonaj wybrany tryb  |  MENU - raport  |  EXIT - wyjście")
-        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 3  •  FB: Enigma 2 Oprogramowanie, dodatki" % (AUTHOR, CONTACT))
-        self["key_red"] = Label("Czerwony: wyjście")
-        self["key_green"] = Label("Zielony: wykonaj")
-        self["key_yellow"] = Label("Żółty: kopia")
-        self["key_blue"] = Label("Niebieski: przywróć")
+        self["support_title"] = Label(_("Wesprzyj"))
+        self["support_text"] = Label(_("Pomóż rozwijać\nlokalne projekty"))
+        self["help"] = Label(_("OK - zmień opcję / otwórz  |  Zielony - wykonaj wybrany tryb  |  MENU - raport  |  EXIT - wyjście"))
+        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3  •  FB: Enigma 2 Oprogramowanie, dodatki" % (AUTHOR, CONTACT))
+        self["key_red"] = Label(_("Czerwony: wyjście"))
+        self["key_green"] = Label(_("Zielony: wykonaj"))
+        self["key_yellow"] = Label(_("Żółty: kopia"))
+        self["key_blue"] = Label(_("Niebieski: przywróć"))
         self["menu"] = MenuList([])
         try:
             from enigma import gFont
@@ -2059,18 +2160,18 @@ class PPChannelSyncScreen(Screen):
         packages = packages_for_source(self.source_index)
         self.package_index = clamp_package_index(self.source_index, self.package_index)
         return [
-            "Źródło kontroli:  %s" % SOURCE_OPTIONS[self.source_index][0],
-            "Pakiet kontrolny:  %s" % packages[self.package_index][0],
-            "Tryb pracy zielonego: %s" % SYNC_MODES[self.mode][0],
-            "Dopisywanie nowych kanałów: %s" % ADD_NEW_MODES[self.add_new_mode][0],
-            "Usuwanie nieaktualnych kanałów: %s" % REMOVE_MODES[self.remove_mode][0],
-            "Automatyczna aktualizacja: %s" % AUTO_UPDATE_MODES[self.auto_mode][0],
-            "Utwórz kopię bezpieczeństwa teraz",
-            "Przywróć ostatnią kopię bezpieczeństwa",
-            "Pokaż ostatni raport",
-            "Pokaż szczegółowy raport zmian",
-            "Aktualizuj wtyczkę z GitHub",
-            "Informacje o działaniu wtyczki",
+            "%s:  %s" % (_("Źródło kontroli"), _(SOURCE_OPTIONS[self.source_index][0])),
+            "%s:  %s" % (_("Pakiet kontrolny"), packages[self.package_index][0]),
+            "%s: %s" % (_("Tryb pracy zielonego"), _(SYNC_MODES[self.mode][0])),
+            "%s: %s" % (_("Dopisywanie nowych kanałów"), _(ADD_NEW_MODES[self.add_new_mode][0])),
+            "%s: %s" % (_("Usuwanie nieaktualnych kanałów"), _(REMOVE_MODES[self.remove_mode][0])),
+            "%s: %s" % (_("Automatyczna aktualizacja"), _(AUTO_UPDATE_MODES[self.auto_mode][0])),
+            _("Utwórz kopię bezpieczeństwa teraz"),
+            _("Przywróć ostatnią kopię bezpieczeństwa"),
+            _("Pokaż ostatni raport"),
+            _("Pokaż szczegółowy raport zmian"),
+            _("Aktualizuj wtyczkę z GitHub"),
+            _("Informacje o działaniu wtyczki"),
         ]
 
     def refresh_menu(self):
@@ -2094,31 +2195,31 @@ class PPChannelSyncScreen(Screen):
 
     def update_side_info(self):
         idx = self.selected_index()
-        self["side_title"].setText("Opis opcji")
+        self["side_title"].setText(_("Opis opcji"))
         if idx == 0:
-            txt = SOURCE_OPTIONS[self.source_index][1] + "\n\nStandard / Alternatywne przełączasz OK albo Lewo/Prawo."
+            txt = _(SOURCE_OPTIONS[self.source_index][1]) + "\n\n" + _("Standard / Alternatywne przełączasz OK albo Lewo/Prawo.")
         elif idx == 1:
-            txt = "Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania."
+            txt = _("Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania.")
         elif idx == 2:
-            txt = SYNC_MODES[self.mode][1] + "\n\nZielony przycisk wykonuje wybrany tryb."
+            txt = _(SYNC_MODES[self.mode][1]) + "\n\n" + _("Zielony przycisk wykonuje wybrany tryb.")
         elif idx == 3:
-            txt = ADD_NEW_MODES[self.add_new_mode][1]
+            txt = _(ADD_NEW_MODES[self.add_new_mode][1])
         elif idx == 4:
-            txt = REMOVE_MODES[self.remove_mode][1]
+            txt = _(REMOVE_MODES[self.remove_mode][1])
         elif idx == 5:
-            txt = AUTO_UPDATE_MODES[self.auto_mode][1]
+            txt = _(AUTO_UPDATE_MODES[self.auto_mode][1])
         elif idx == 6:
-            txt = "Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv."
+            txt = _("Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv.")
         elif idx == 7:
-            txt = "Przywraca ostatnią kopię wykonaną przez PP Channel Sync."
+            txt = _("Przywraca ostatnią kopię wykonaną przez PP Channel Sync.")
         elif idx == 8:
-            txt = "Pokazuje ostatni raport skrócony. MENU działa tak samo z każdego miejsca ekranu."
+            txt = _("Pokazuje ostatni raport skrócony. MENU działa tak samo z każdego miejsca ekranu.")
         elif idx == 9:
-            txt = "Pokazuje szczegółowy raport: dodane, usunięte, poprawione i pominięte kanały."
+            txt = _("Pokazuje szczegółowy raport: dodane, usunięte, poprawione i pominięte kanały.")
         elif idx == 10:
-            txt = "Sprawdza update.json na GitHub, porównuje wersję, pobiera najnowszy plik IPK i instaluje aktualizację."
+            txt = _("Sprawdza update.json na GitHub, porównuje wersję, pobiera najnowszy plik IPK i instaluje aktualizację.")
         else:
-            txt = "Autor: by Paweł Pawełek\nKontakt: aio-iptv@wp.pl\n\nDVB-T/DVB-C jest pomijane. Wtyczka nie zmienia głowicy, sieci, skina ani rozdzielczości."
+            txt = _("Autor: by Paweł Pawełek\nKontakt: aio-iptv@wp.pl\n\nDVB-T/DVB-C jest pomijane. Wtyczka nie zmienia głowicy, sieci, skina ani rozdzielczości.")
         self["side_info"].setText(txt)
     def up(self):
         self["menu"].up()
@@ -2338,7 +2439,7 @@ class PPChannelSyncScreen(Screen):
         text = (
             "PP Channel Sync v%s\n"
             "%s\n\n"
-            "Wersja 1.0.16 działa w bezpiecznym trybie korekty technicznej i ma wybór źródła kontroli Standard / Alternatywne:\n"
+            "Wersja 1.0.17 działa w bezpiecznym trybie korekty technicznej i ma wybór źródła kontroli Standard / Alternatywne:\n"
             "- nie instaluje gotowych bukietów,\n"
             "- nie tworzy nowych bukietów,\n"
             "- nie przebudowuje układu ani kolejności listy,\n"
@@ -2363,14 +2464,14 @@ def Plugins(**kwargs):
     return [
         PluginDescriptor(
             name=PLUGIN_NAME,
-            description="PP Channel Sync - korekta listy, DVB-T pomijane, raporty i QR",
+            description="PP Channel Sync - list correction, DVB-T skipped, reports and QR",
             where=PluginDescriptor.WHERE_PLUGINMENU,
             icon="plugin.png",
             fnc=main
         ),
         PluginDescriptor(
             name=PLUGIN_NAME,
-            description="PP Channel Sync - automatyczna kontrola listy",
+            description="PP Channel Sync - automatic list check",
             where=PluginDescriptor.WHERE_SESSIONSTART,
             fnc=autostart
         )

@@ -31,12 +31,12 @@ Po instalacji wykonaj restart GUI.
 Pobierz plik IPK z katalogu `packages/`, skopiuj do `/tmp`, a następnie uruchom:
 
 ```sh
-opkg install --force-reinstall /tmp/enigma2-plugin-extensions-ppchannelsync_1.0.16_all.ipk
+opkg install --force-reinstall /tmp/enigma2-plugin-extensions-ppchannelsync_1.0.17_all.ipk
 ```
 
 ## Aktualizacja z poziomu wtyczki
 
-Od wersji **1.0.16** działa przycisk:
+Od wersji **1.0.17** działa przycisk:
 
 ```text
 Aktualizuj wtyczkę z GitHub
