@@ -1,0 +1,18 @@
+{
+  "name": "PP Channel Sync",
+  "version": "1.0.16",
+  "date": "2026-06-28",
+  "author": "by Paweł Pawełek",
+  "contact": "aio-iptv@wp.pl",
+  "repo": "https://github.com/OliOli2013/PPChannelSync-Plugin",
+  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.0.16_all.ipk",
+  "installer_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/installer.sh",
+  "sha256": "4b686cf1ca83b369610331e04511818af1dc28e621773ed41fb34f7d989f3a9c",
+  "size": 32718,
+  "notes": [
+    "Aktywna aktualizacja wtyczki z GitHub przez update.json.",
+    "DVB-T/DVB-C pozostaje pomijane i nie jest korygowane.",
+    "Zachowany wybór źródła kontroli: Standard / Alternatywne.",
+    "Zachowane raporty, kopia bezpieczeństwa i QR wsparcia."
+  ]
+}
