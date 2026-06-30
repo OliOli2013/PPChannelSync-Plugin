@@ -1,18 +1,17 @@
 {
   "name": "PP Channel Sync",
-  "version": "1.0.17",
-  "date": "2026-06-28",
-  "author": "by Paweł Pawełek",
-  "contact": "aio-iptv@wp.pl",
-  "repo": "https://github.com/OliOli2013/PPChannelSync-Plugin",
-  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.0.17_all.ipk",
-  "installer_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/installer.sh",
-  "sha256": "eddee19f8b170a95e2a9339bc6880f7b10908d6263789428edcae250df6b084a",
-  "size": 94218,
-  "notes": [
-    "Dodana zgodność Python 2/3.",
-    "Dodany automatyczny wybór języka PL/EN według języka systemu Enigma2.",
-    "Poprawione czyszczenie podpisu PP Channel Sync w widoku bukietów — zostaje tylko ostatnia aktualizacja.",
-    "DVB-T/DVB-C pozostaje pomijane i nie jest korygowane."
+  "version": "1.2.0",
+  "latest_version": "1.2.0",
+  "date": "2026-06-30",
+  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.2.0_all.ipk",
+  "package_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.2.0_all.ipk",
+  "sha256": "ddd361d03153eac9e16434e06188f4af9154792b4c26fe6bc45073a5c6dadbab",
+  "size": 101268,
+  "changelog": [
+    "Nie usuwa automatycznie poprawnych kanałów użytkownika.",
+    "Nie podmienia poprawnych istniejących pozycji w bukietach.",
+    "Zachowuje EPG-safe lokalny lamedb i dopisuje tylko brakujące wpisy kontrolne.",
+    "Zielony przycisk pokazuje status wykonywania zadania.",
+    "Zachowuje funkcje z gałęzi 1.1.x bez ryzykownej synchronizacji całych bukietów."
   ]
 }

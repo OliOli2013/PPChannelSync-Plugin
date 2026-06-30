@@ -33,7 +33,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "1.0.17"
+PLUGIN_VERSION = "1.2.0"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -46,6 +46,10 @@ REPORT_PATH = "/tmp/ppchannelsync_report.txt"
 DETAIL_REPORT_PATH = "/tmp/ppchannelsync_details.txt"
 ERROR_PATH = "/tmp/ppchannelsync_error.txt"
 AUTO_SUMMARY_PATH = "/tmp/ppchannelsync_auto_summary.txt"
+USER_REPORT_PATH = "/tmp/ppchannelsync_user_report.txt"
+DIAGNOSTIC_PATH = "/tmp/ppchannelsync_diagnostics.txt"
+SUPPORT_ZIP_PATH = "/tmp/ppchannelsync_support_report.zip"
+HISTORY_PATH = "/etc/enigma2/ppchannelsync_history.log"
 CONFIG_PATH = "/etc/enigma2/ppchannelsync.conf"
 STATE_PATH = "/etc/enigma2/ppchannelsync_state.conf"
 UPDATE_INFO_PATH = "/tmp/ppchannelsync_update_info.txt"
@@ -119,6 +123,7 @@ SYNC_MODES = [
 ADD_NEW_MODES = [
     ("Nie", "Nie dopisuje nowych kanałów; wykonuje tylko kontrolę i bezpieczne korekty."),
     ("Tak - na koniec pasujących bukietów", "Dopisuje nowe kanały tylko na końcu pasujących, już istniejących bukietów. Nie zmienia kolejności obecnych kanałów i nie tworzy nowych bukietów."),
+    ("Tak - osobny bukiet Nowe kanały", "Dopisuje nowe kanały do osobnego bukietu PP Channel Sync - Nowe kanały. Dzięki temu łatwo je później ręcznie przenieść lub usunąć."),
 ]
 
 REMOVE_OFF = 0
@@ -127,7 +132,7 @@ REMOVE_DELETE = 2
 REMOVE_MODES = [
     ("Nie", "Nie usuwa kanałów z Twoich bukietów. Kanały niepewne zostają tylko w raporcie."),
     ("Tylko raport", "Wykrywa kanały, których nie ma w bazie kontrolnej, ale nie usuwa ich z listy."),
-    ("Usuń pewne", "Usuwa wyłącznie pozycje jednoznacznie oznaczone jako nieaktualne w pasującym bukiecie. Używać ostrożnie."),
+    ("Tylko raport", "Wtyczka nie usuwa istniejących kanałów. Niepewne pozycje trafiają tylko do raportu."),
 ]
 
 MATCH_SAFE = 0
@@ -214,14 +219,14 @@ _TR_EN = {
     "Opis opcji": "Option description",
     "Wesprzyj": "Support",
     "Pomóż rozwijać\nlokalne projekty": "Help develop\nlocal projects",
-    "Opcje ustawiasz z listy, a zielony przycisk wykonuje wybrany tryb pracy": "Set options from the list; the green button runs the selected mode",
-    "OK - zmień opcję / otwórz  |  Zielony - wykonaj wybrany tryb  |  MENU - raport  |  EXIT - wyjście": "OK - change/open  |  Green - run selected mode  |  MENU - report  |  EXIT - close",
+    "OK wykonuje funkcję z listy, a zielony przycisk uruchamia ustawione zadanie korekty listy": "OK runs the selected list function; the green button starts the configured list correction task",
+    "OK - opcja / funkcja  |  Zielony - korekta listy  |  MENU - raport  |  EXIT - wyjście": "OK - option / function  |  Green - list correction  |  MENU - report  |  EXIT - close",
     "Czerwony: wyjście": "Red: exit",
-    "Zielony: wykonaj": "Green: run",
+    "Zielony: korekta listy": "Green: correct list",
     "Żółty: kopia": "Yellow: backup",
     "Niebieski: przywróć": "Blue: restore",
     "Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania.": "Choose a control range matching the list on your receiver.\n\nThe package is only used as a comparison point.",
-    "Zielony przycisk wykonuje wybrany tryb.": "The green button runs the selected mode.",
+    "Zielony przycisk uruchamia tylko ustawione zadanie korekty listy. Funkcje z menu uruchamiasz przyciskiem OK.": "The green button starts only the configured channel list correction task. Menu functions are run with OK.",
     "Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv.": "Creates a backup of lamedb, lamedb5, bouquets.tv and all userbouquet.*.tv files.",
     "Przywraca ostatnią kopię wykonaną przez PP Channel Sync.": "Restores the last backup created by PP Channel Sync.",
     "Pokazuje ostatni raport skrócony. MENU działa tak samo z każdego miejsca ekranu.": "Shows the last short report. MENU works the same from anywhere on this screen.",
@@ -306,12 +311,28 @@ def load_settings():
         "add_new_mode": as_int("add_new_mode", 1, len(ADD_NEW_MODES) - 1),
         "remove_mode": as_int("remove_mode", REMOVE_REPORT, len(REMOVE_MODES) - 1),
         "auto_mode": as_int("auto_mode", AUTO_OFF, len(AUTO_UPDATE_MODES) - 1),
+        # v1.1.1: zapisujemy także opcje dodane w v1.1.0.
+        # Bez tego wtyczka po każdym uruchomieniu wracała do trybu Zaawansowany
+        # i domyślnych ustawień kreatorów.
+        "ui_mode": as_int("ui_mode", 1, 1),
+        "profile_mode": as_int("profile_mode", 1, 4),
+        "skip_iptv": as_int("skip_iptv", 0, 1),
+        "keep_names": as_int("keep_names", 0, 1),
+        "new_filter": as_int("new_filter", 0, 3),
+        "new_target": as_int("new_target", 0, 2),
+        "name_mode": as_int("name_mode", 0, 2),
+        "operator_profile": as_int("operator_profile", 0, 4),
     }
 
 
 def save_settings(data):
     cfg = read_kv(CONFIG_PATH)
-    for key in ("source_index", "package_index", "mode", "add_new_mode", "remove_mode", "auto_mode"):
+    keys = (
+        "source_index", "package_index", "mode", "add_new_mode", "remove_mode", "auto_mode",
+        "ui_mode", "profile_mode", "skip_iptv", "keep_names", "new_filter", "new_target",
+        "name_mode", "operator_profile"
+    )
+    for key in keys:
         if key in data:
             cfg[key] = str(data[key])
     write_kv(CONFIG_PATH, cfg)
@@ -504,6 +525,15 @@ def is_terrestrial_service_ref(ref):
     if len(parts) < 7:
         return False
     return is_terrestrial_namespace(parts[6])
+
+
+def is_dvbt_ref(ref):
+    """Alias zgodności dla narzędzi diagnostycznych v1.1.x.
+    Rozpoznaje wpisy DVB-T/DVB-C, których wtyczka nie powinna analizować
+    jako satelitarne. Brak tej funkcji powodował błędy w duplikatach i
+    kontroli EPG/piconów.
+    """
+    return is_terrestrial_service_ref(ref)
 
 
 def is_dvbt_bouquet_title(title):
@@ -728,6 +758,12 @@ def parse_local_lamedb():
     if alt.get("sections"):
         return alt
     return primary
+
+def load_local_lamedb():
+    # Alias zgodności dla narzędzi dodanych w v1.1.x.
+    # Część funkcji diagnostycznych korzysta z tej nazwy, a właściwy parser
+    # lokalnego lamedb to parse_local_lamedb().
+    return parse_local_lamedb()
 
 
 def service_name_from_block(block):
@@ -1239,13 +1275,29 @@ def build_plan(remote, match_mode=None, add_new=True, remove_mode=REMOVE_REPORT)
             if name_is_usable(name):
                 used_names.add(normalize_strict(name))
 
-            if cur_key in remote_services:
-                # Reference już istnieje w bazie kontrolnej. Nie zmieniamy pozycji ani wpisu w bukiecie.
+            local_services = local_db.get("services") or {}
+            if cur_key in local_services:
+                # Najważniejsza zasada v1.2.0:
+                # jeżeli kanał istnieje w lokalnym lamedb użytkownika, NIE podmieniamy jego
+                # #SERVICE, nawet jeśli baza kontrolna ma inny wariant. To chroni EPG, picony
+                # i autorski układ listy. Baza kontrolna służy wtedy tylko do dopisania nowych
+                # kanałów oraz raportu.
                 plan["same_ref"] += 1
+                if cur_key in remote_services:
+                    used_remote_keys.add(cur_key)
+                continue
+
+            if cur_key in remote_services:
+                # Wpis jest w bazie kontrolnej, ale brakuje go lokalnie. Dopisujemy go do lamedb
+                # bez zmiany pozycji w bukiecie.
+                plan["same_ref"] += 1
+                add_remote_service_for_key(plan, cur_key, cur_key)
                 used_remote_keys.add(cur_key)
                 continue
 
-            # v1.0.10: najpierw sprawdzamy ten sam SID/TSID/ONID/namespace z innym service type.
+            # v1.2.0: dopiero gdy wpisu nie ma ani w lokalnym lamedb, ani w bazie po identycznym
+            # kluczu, próbujemy bezpiecznych aliasów/naprawy.
+            # Najpierw sprawdzamy ten sam SID/TSID/ONID/namespace z innym service type.
             # To był powód braków EPG w części kanałów: baza kontrolna miała np. typ 25,
             # a lista/EPG użytkownika pracowała na typie 1 albo 19. W takiej sytuacji
             # NIE zmieniamy #SERVICE w bukiecie, tylko dopisujemy alias service do lamedb.
@@ -1341,22 +1393,12 @@ def build_plan(remote, match_mode=None, add_new=True, remove_mode=REMOVE_REPORT)
         else:
             file_plan["remote_title"] = "brak mocnego dopasowania - bez dopisywania nowych kanałów"
 
-        # Usuwanie jest domyślnie raportowe. W trybie Usuń pewne usuwamy tylko wpisy bez pewnego
-        # odpowiednika, ale dopiero po świadomym ustawieniu opcji przez użytkownika.
-        if remove_mode == REMOVE_DELETE:
-            for e in entries:
-                cur_key = e.get("key")
-                if not cur_key or cur_key in remote_services:
-                    continue
-                cand = candidate_from_global_name(e, strict_unique)
-                if cand:
-                    continue
-                if e.get("service_index") is not None:
-                    file_plan["remove_indices"].add(e.get("service_index"))
-                    if e.get("desc_index") is not None:
-                        file_plan["remove_indices"].add(e.get("desc_index"))
-                    plan["removed_channels"].append({"bouquet": local_title, "name": e.get("name") or e.get("ref"), "ref": e.get("ref")})
-                    plan["removed_count"] += 1
+        # Usuwanie istniejących kanałów jest w tej gałęzi celowo wyłączone.
+        # Nawet jeśli kanał wygląda na nieaktualny, trafia do raportu jako kandydat,
+        # ale nie jest usuwany z bukietu. Usuwanie poprawnych pozycji było zbyt ryzykowne.
+        # Docelowo można dodać osobny ekran ręcznego zatwierdzania usunięć.
+        if False and remove_mode == REMOVE_DELETE:
+            pass
 
     plan["protected_local_services"] = len(plan["service_appends"])
     return plan
@@ -1628,6 +1670,18 @@ def update_main_bouquet_marker():
         if i + 1 < len(lines) and lines[i + 1].startswith("#DESCRIPTION "):
             next_desc = lines[i + 1][len("#DESCRIPTION "):].strip()
 
+        # Prawdziwy bukiet w bouquets.tv ma FROM BOUQUET.
+        # Nie wolno usuwać takiej pary nawet gdy opis zawiera PP Channel Sync,
+        # bo wtedy znika wejście do osobnego bukietu „Nowe kanały”.
+        if line.startswith("#SERVICE ") and "FROM BOUQUET" in line:
+            out.append(line)
+            if next_desc:
+                out.append(lines[i + 1])
+                i += 2
+            else:
+                i += 1
+            continue
+
         # Standardowy blok markerowy: #SERVICE 1:64... + #DESCRIPTION ...
         if line.startswith("#SERVICE ") and next_desc:
             if is_marker_service(line) and is_credit_description(next_desc):
@@ -1635,8 +1689,8 @@ def update_main_bouquet_marker():
                 i += 2
                 continue
             # Dodatkowe zabezpieczenie po starych wersjach: jeśli opis jest naszym podpisem,
-            # kasujemy parę nawet przy nietypowym typie serwisu.
-            if re.search(r"pp\s*channel\s*sync", normalize_basic(next_desc)):
+            # kasujemy parę tylko wtedy, gdy to NIE jest wpis FROM BOUQUET.
+            if "FROM BOUQUET" not in line and re.search(r"pp\s*channel\s*sync", normalize_basic(next_desc)):
                 removed += 1
                 i += 2
                 continue
@@ -1779,13 +1833,23 @@ def write_bouquet_channel_changes(plan):
             new_items = plan.get("new_channels", {}).get(fn, [])
             if new_items:
                 # Dopisujemy WYŁĄCZNIE na końcu istniejącego bukietu, po separatorze.
-                lines.append("#SERVICE 1:64:0:0:0:0:0:0:0:0:")
-                lines.append("#DESCRIPTION ........ nowe kanały - PP Channel Sync ........")
+                # Nie dublujemy kanałów, które już są w pliku.
+                existing_services = set([ln.strip() for ln in lines if ln.startswith("#SERVICE ")])
+                filtered = []
                 for item in new_items:
-                    lines.append(item.get("service_line") or ("#SERVICE %s" % item.get("ref")))
-                    lines.append(item.get("description_line") or ("#DESCRIPTION %s" % item.get("name", "")))
-                    added_channels += 1
-                dirty = True
+                    svc = item.get("service_line") or ("#SERVICE %s" % item.get("ref"))
+                    if svc.strip() in existing_services:
+                        continue
+                    filtered.append(item)
+                    existing_services.add(svc.strip())
+                if filtered:
+                    lines.append("#SERVICE 1:64:0:0:0:0:0:0:0:0:")
+                    lines.append("#DESCRIPTION ........ nowe kanały - PP Channel Sync ........")
+                    for item in filtered:
+                        lines.append(item.get("service_line") or ("#SERVICE %s" % item.get("ref")))
+                        lines.append(item.get("description_line") or ("#DESCRIPTION %s" % item.get("name", "")))
+                        added_channels += 1
+                    dirty = True
             if dirty:
                 write_text(fn, "\n".join(lines) + "\n")
                 changed_files += 1
@@ -1857,7 +1921,7 @@ def apply_plan(plan, mode):
     result.append("Dogrywanie gotowych bukietów: NIE")
     result.append("Tworzenie nowych bukietów: NIE")
     result.append("Nowe kanały dopisane do istniejących bukietów: %d" % added_channels)
-    result.append("Kanały usunięte z bukietów: %d" % removed_channels)
+    result.append("Kanały usunięte z bukietów: %d (automatyczne usuwanie wyłączone)" % removed_channels)
     result.append("Bezpieczne korekty service reference: %d" % ref_changes)
     result.append("Aliasy service type dla EPG/piconów: %d" % len(plan.get("epg_type_aliases", [])))
     result.append("Lamedb zachowany lokalnie + dopisane brakujące wpisy kontrolne: %s" % ("TAK" if lamedb_written else "NIE"))
@@ -1940,7 +2004,7 @@ def run_auto_update(session):
         run, reason = _should_auto_run(cfg, remote.get("hash"))
         if not run:
             return
-        plan = build_plan(remote, None, cfg.get("add_new_mode", 1) == 1, cfg.get("remove_mode", REMOVE_REPORT))
+        plan = build_plan(remote, None, cfg.get("add_new_mode", 1) > 0, cfg.get("remove_mode", REMOVE_REPORT))
         write_report(plan, MODE_CORRECT, None)
         result = apply_plan(plan, MODE_CORRECT)
         now = int(time.time())
@@ -2068,6 +2132,494 @@ def install_ipk(path):
     return log
 
 
+
+
+# ---------------------------------------------------------------------------
+# PP Channel Sync v1.1.0 - rozszerzone narzędzia użytkownika
+# ---------------------------------------------------------------------------
+
+UI_MODES = [("Prosty", "Pokazuje najważniejsze funkcje dla zwykłych użytkowników."), ("Zaawansowany", "Pokazuje wszystkie narzędzia, raporty i ustawienia.")]
+PROFILE_MODES = [("Bezpieczny", "Nie usuwa kanałów i wykonuje wyłącznie ostrożne poprawki."), ("Standardowy", "Poprawia listę i może dopisać nowe kanały zgodnie z ustawieniami."), ("Pełny", "Pozwala również usuwać pewne, nieaktualne pozycje. Używać ostrożnie."), ("Tylko raport", "Nie zapisuje zmian, tylko przygotowuje raport."), ("Pojedynczy bukiet", "Pracuje tylko na wybranym bukiecie.")]
+YESNO_OPTIONS = [("Tak", "Włączone."), ("Nie", "Wyłączone.")]
+NEW_FILTER_OPTIONS = [("Wszystkie", "Pokaż wszystkie nowe kanały."), ("Tylko FTA", "Dodawanie tylko kanałów FTA - funkcja przygotowana w trybie ostrożnym."), ("Tylko polskie", "Dodawanie tylko kanałów polskich - funkcja przygotowana w trybie ostrożnym."), ("Tylko wybrana satelita", "Dodawanie tylko z wybranego pakietu kontrolnego.")]
+BOUQUET_TARGET_OPTIONS = [("Na końcu pasującego bukietu", "Nowe kanały trafią na końce pasujących bukietów."), ("Osobny bukiet Nowe kanały", "Nowe kanały trafią do osobnego bukietu PP Channel Sync - Nowe kanały."), ("Pytaj / raport", "Najpierw pokaż raport, bez automatycznego dopisywania.")]
+NAME_MODE_OPTIONS = [("Zachowaj moje nazwy", "Nazwy kanałów z Twojej listy zostają bez zmian."), ("Normalizuj ręcznie", "Dostępna jest osobna funkcja czyszczenia końcówek typu podkreślenie/spacje."), ("Nazwy z bazy", "Tryb informacyjny; domyślnie nie nadpisuje nazw użytkownika.")]
+OPERATOR_PROFILES = [("Automatyczny", "Wtyczka rozpoznaje bukiety po nazwie i zawartości."), ("Polska", "Ustawienia preferowane dla polskich bukietów."), ("Canal+", "Profil operatora Canal+."), ("Polsat Box", "Profil operatora Polsat Box."), ("FTA", "Profil kanałów niekodowanych.")]
+
+_TR_EN_EXTRA = {
+    "Tryb interfejsu": "Interface mode", "Profil pracy": "Work profile", "Ochrona IPTV/streamów": "Protect IPTV/streams", "Zachowaj moje nazwy kanałów": "Keep my channel names", "Filtr nowych kanałów": "New channels filter", "Miejsce nowych kanałów": "New channels target", "Profil operatora": "Operator profile",
+    "Szybka naprawa listy": "Quick list repair", "Sprawdź listę i pokaż ocenę": "Check list and show status", "Aktualizuj wybrany bukiet": "Update selected bouquet", "Napraw pojedynczy kanał": "Repair single channel", "Zmień nazwę bukietu": "Rename bouquet", "Kreator nowych kanałów": "New channels wizard", "Znajdź duplikaty kanałów": "Find duplicate channels", "Szukaj kanału w liście": "Search channel in list", "Sprawdź EPG i picony": "Check EPG and picons", "Raport prosty dla użytkownika": "Simple user report", "Raport techniczny": "Technical report", "Porównaj źródła kontroli": "Compare control sources", "Ustaw typ/kategorię bukietu": "Set bouquet type/category", "Historia aktualizacji": "Update history", "Menedżer kopii bezpieczeństwa": "Backup manager", "Diagnostyka systemu": "System diagnostics", "Przygotuj raport do wysłania": "Prepare support report", "Kreator pierwszego uruchomienia": "First start wizard", "Normalizuj nazwy kanałów": "Normalize channel names",
+    "Prosty": "Simple", "Zaawansowany": "Advanced", "Bezpieczny": "Safe", "Standardowy": "Standard", "Pełny": "Full", "Tylko raport": "Report only", "Pojedynczy bukiet": "Single bouquet", "Wszystkie": "All", "Tylko FTA": "FTA only", "Tylko polskie": "Polish only", "Tylko wybrana satelita": "Selected satellite only", "Na końcu pasującego bukietu": "At the end of matching bouquet", "Osobny bukiet Nowe kanały": "Separate New channels bouquet", "Pytaj / raport": "Ask / report", "Zachowaj moje nazwy": "Keep my names", "Normalizuj ręcznie": "Normalize manually", "Nazwy z bazy": "Names from database", "Automatyczny": "Automatic", "Polska": "Poland",
+}
+
+def tr2(txt):
+    try:
+        if _LANG == "en":
+            return _TR_EN_EXTRA.get(txt, _(txt))
+    except Exception:
+        pass
+    return _(txt)
+
+
+def safe_text_line(value):
+    return (value or "").replace("\r", " ").replace("\n", " ").strip()
+
+
+def list_tv_bouquet_files():
+    path = os.path.join(E2_PATH, "bouquets.tv")
+    files = []
+    if os.path.isfile(path):
+        try:
+            for line in read_text(path).splitlines():
+                if "FROM BOUQUET" in line and "userbouquet." in line and ".tv" in line:
+                    m = re.search(r'"([^"]*userbouquet\.[^"]+\.tv)"', line)
+                    if m:
+                        fn = os.path.basename(m.group(1))
+                        full = os.path.join(E2_PATH, fn)
+                        if os.path.isfile(full) and full not in files:
+                            files.append(full)
+        except Exception:
+            pass
+    if not files:
+        try:
+            for fn in os.listdir(E2_PATH):
+                if fn.startswith("userbouquet.") and fn.endswith(".tv"):
+                    files.append(os.path.join(E2_PATH, fn))
+        except Exception:
+            pass
+    return files
+
+
+def bouquet_title_from_file(fn):
+    try:
+        lines = read_text(fn).splitlines()
+        return bouquet_name_from_lines(lines, os.path.basename(fn).replace("userbouquet.", "").replace(".tv", ""))
+    except Exception:
+        return os.path.basename(fn)
+
+
+def is_iptv_ref(ref):
+    try:
+        parts = (ref or "").split(":")
+        if len(parts) > 0 and parts[0] in ("4097", "5001", "5002", "8193", "8739"):
+            return True
+        if "%3a//" in (ref or "").lower() or "://" in (ref or "").lower():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def is_sat_entry(entry):
+    ref = entry.get("ref") or ""
+    if is_iptv_ref(ref):
+        return False
+    if is_dvbt_ref(ref):
+        return False
+    return valid_dvb_service_ref(ref)
+
+
+def filter_plan_to_files(plan, selected_files):
+    selected = set(selected_files or [])
+    if not selected:
+        return plan
+    plan = dict(plan)
+    files = {}
+    for k, v in (plan.get("files") or {}).items():
+        if k in selected:
+            files[k] = v
+    plan["files"] = files
+    plan["new_channels"] = dict((k, v) for k, v in (plan.get("new_channels") or {}).items() if k in selected)
+    plan["selected_bouquet_mode"] = True
+    return plan
+
+
+def ensure_bouquet_in_main_list(filename, title):
+    path = os.path.join(E2_PATH, "bouquets.tv")
+    if not os.path.isfile(path):
+        return False
+    lines = read_text(path).splitlines()
+    service_line = '#SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "%s" ORDER BY bouquet' % filename
+    for line in lines:
+        if filename in line:
+            return False
+    lines.append(service_line)
+    lines.append("#DESCRIPTION %s" % title)
+    write_text(path, "\n".join(lines) + "\n")
+    return True
+
+
+
+def update_bouquets_tv_description(filename, new_title):
+    """Aktualizuje opis bukietu w /etc/enigma2/bouquets.tv.
+    To właśnie ten opis często widać w widoku list bukietów Enigma2.
+    """
+    path = os.path.join(E2_PATH, "bouquets.tv")
+    if not os.path.isfile(path):
+        return False
+    base = os.path.basename(filename)
+    lines = read_text(path).splitlines()
+    out = []
+    changed = False
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        if "FROM BOUQUET" in line and base in line:
+            if i + 1 < len(lines) and lines[i + 1].startswith("#DESCRIPTION"):
+                out.append("#DESCRIPTION %s" % safe_text_line(new_title))
+                i += 2
+                changed = True
+                continue
+            else:
+                out.append("#DESCRIPTION %s" % safe_text_line(new_title))
+                changed = True
+        i += 1
+    if changed:
+        write_text(path, "\n".join(out) + "\n")
+    return changed
+
+
+def rename_bouquet_file(path, new_title):
+    """Zmienia nazwę pojedynczego bukietu bez ruszania kanałów."""
+    new_title = safe_text_line(new_title)
+    if not new_title:
+        raise Exception("Nowa nazwa bukietu jest pusta.")
+    if not os.path.isfile(path):
+        raise Exception("Nie znaleziono pliku bukietu.")
+    make_backup()
+    lines = read_text(path).splitlines()
+    changed_name = False
+    for i, line in enumerate(lines):
+        if line.startswith("#NAME"):
+            lines[i] = "#NAME %s" % new_title
+            changed_name = True
+            break
+    if not changed_name:
+        lines.insert(0, "#NAME %s" % new_title)
+    write_text(path, "\n".join(lines) + "\n")
+    update_bouquets_tv_description(os.path.basename(path), new_title)
+    reload_enigma_bouquets()
+    return True
+
+def append_new_channels_to_separate_bouquet(plan):
+    new_map = plan.get("new_channels") or {}
+    items = []
+    seen = set()
+    for fn, arr in new_map.items():
+        for item in arr:
+            key = item.get("key") or service_key(item.get("ref") or "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            items.append(item)
+    if not items:
+        return 0
+    fn = os.path.join(E2_PATH, "userbouquet.ppchannelsync_new.tv")
+    lines = ["#NAME PP Channel Sync - Nowe kanały", "#SERVICE 1:64:0:0:0:0:0:0:0:0:", "#DESCRIPTION ........ nowe kanały - PP Channel Sync ........"]
+    for item in items:
+        lines.append(item.get("service_line") or ("#SERVICE %s" % item.get("ref")))
+        lines.append(item.get("description_line") or ("#DESCRIPTION %s" % item.get("name", "")))
+    write_text(fn, "\n".join(lines) + "\n")
+    ensure_bouquet_in_main_list("userbouquet.ppchannelsync_new.tv", "PP Channel Sync - Nowe kanały")
+    return len(items)
+
+
+def plan_status_text(plan):
+    checked = int(plan.get("checked", 0) or 0)
+    fixes = len(plan.get("ref_fixes", []) or [])
+    newc = int(plan.get("new_channels_added", 0) or 0)
+    rem = int(plan.get("removed_count", 0) or 0)
+    score = fixes + newc + rem
+    status = "DOBRY"
+    if score > 50:
+        status = "WYMAGA KOREKTY"
+    elif score > 0:
+        status = "DROBNE ZMIANY"
+    return "Stan listy: %s\n\nSprawdzono kanałów: %d\nDo poprawy: %d\nNowe kanały dostępne: %d\nPrawdopodobnie usunięte: %d\nPominięte DVB-T/DVB-C: %d" % (status, checked, fixes, newc, rem, len(plan.get("skipped_dvbt_bouquets", []) or []))
+
+
+def write_user_friendly_report(plan, title="PP Channel Sync - raport prosty"):
+    lines = []
+    lines.append("by Paweł Pawełek * %s" % CONTACT)
+    lines.append(SUPPORT_TEXT + ".")
+    lines.append("")
+    lines.append(title)
+    lines.append("")
+    lines.append(plan_status_text(plan))
+    lines.append("")
+    lines.append("Co zrobiono / co można zrobić:")
+    lines.append("- gotowe bukiety nie są dogrywane")
+    lines.append("- DVB-T/DVB-C oraz IPTV są chronione/pomijane")
+    lines.append("- układ i kolejność obecnej listy pozostają nadrzędne")
+    lines.append("")
+    if plan.get("new_channels"):
+        lines.append("Nowe kanały do sprawdzenia:")
+        count = 0
+        for fn, items in (plan.get("new_channels") or {}).items():
+            lines.append("  Bukiet: %s" % bouquet_title_from_file(fn))
+            for item in items[:25]:
+                lines.append("    + %s" % (item.get("name") or item.get("ref") or ""))
+                count += 1
+            if len(items) > 25:
+                lines.append("    ... oraz %d kolejnych" % (len(items) - 25))
+        lines.append("")
+    if plan.get("ref_fixes"):
+        lines.append("Pewne korekty techniczne: %d" % len(plan.get("ref_fixes") or []))
+    write_text(USER_REPORT_PATH, "\n".join(lines) + "\n")
+    return USER_REPORT_PATH
+
+
+def find_duplicate_channels_report():
+    local_db = load_local_lamedb()
+    names = local_db.get("names") or {}
+    dup = {}
+    total = 0
+    for fn in list_tv_bouquet_files():
+        title = bouquet_title_from_file(fn)
+        if is_dvbt_bouquet_title(title):
+            continue
+        lines, entries = parse_bouquet_entries(fn, names)
+        for e in entries:
+            if not is_sat_entry(e):
+                continue
+            nm = e.get("name") or ""
+            if not name_is_usable(nm):
+                continue
+            k = normalize_strict(nm)
+            dup.setdefault(k, []).append((nm, title, e.get("ref")))
+            total += 1
+    out = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Duplikaty kanałów", "Sprawdzono pozycji: %d" % total, ""]
+    found = 0
+    for k, arr in sorted(dup.items()):
+        if len(arr) > 1:
+            found += 1
+            out.append("%s - %d razy" % (arr[0][0], len(arr)))
+            for nm, title, ref in arr[:10]:
+                out.append("  - %s" % title)
+            out.append("")
+    if found == 0:
+        out.append("Nie znaleziono oczywistych duplikatów po nazwie kanału.")
+    else:
+        out.insert(5, "Znaleziono grup duplikatów: %d" % found)
+    write_text(DETAIL_REPORT_PATH, "\n".join(out) + "\n")
+    return "Znaleziono grup duplikatów: %d\n\nSzczegóły: %s" % (found, DETAIL_REPORT_PATH)
+
+
+def search_channel_report(query):
+    q = normalize_basic(query or "")
+    local_db = load_local_lamedb()
+    names = local_db.get("names") or {}
+    out = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Szukaj kanału: %s" % query, ""]
+    found = 0
+    for fn in list_tv_bouquet_files():
+        title = bouquet_title_from_file(fn)
+        lines, entries = parse_bouquet_entries(fn, names)
+        pos = 0
+        for e in entries:
+            if not is_sat_entry(e):
+                continue
+            pos += 1
+            nm = e.get("name") or ""
+            if q and q in normalize_basic(nm):
+                found += 1
+                out.append("%s - %s, pozycja %d" % (nm, title, pos))
+    if found == 0:
+        out.append("Brak wyników.")
+    write_text(DETAIL_REPORT_PATH, "\n".join(out) + "\n")
+    return "Znaleziono: %d\n\nSzczegóły: %s" % (found, DETAIL_REPORT_PATH)
+
+
+def possible_picon_names(ref):
+    base = (ref or "").replace(":", "_").strip("_")
+    return [base + ".png", base.lower() + ".png"]
+
+
+def picon_dirs():
+    return ["/usr/share/enigma2/picon", "/media/hdd/picon", "/media/usb/picon", "/picon"]
+
+
+def check_epg_picons_report():
+    local_db = load_local_lamedb()
+    names = local_db.get("names") or {}
+    missing_picons = []
+    total = 0
+    for fn in list_tv_bouquet_files():
+        title = bouquet_title_from_file(fn)
+        if is_dvbt_bouquet_title(title):
+            continue
+        lines, entries = parse_bouquet_entries(fn, names)
+        for e in entries:
+            if not is_sat_entry(e):
+                continue
+            total += 1
+            ref = e.get("ref") or ""
+            exists = False
+            for d in picon_dirs():
+                for n in possible_picon_names(ref):
+                    if os.path.exists(os.path.join(d, n)):
+                        exists = True
+                        break
+                if exists:
+                    break
+            if not exists:
+                missing_picons.append((e.get("name") or ref, title))
+    out = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Kontrola EPG i piconów", ""]
+    out.append("Sprawdzono kanałów SAT: %d" % total)
+    out.append("Kanały bez wykrytego piconu: %d" % len(missing_picons))
+    out.append("EPG: obecność aktualnych danych EPG można w pełni ocenić tylko na tunerze podczas pracy kanału lub po imporcie EPG.")
+    out.append("")
+    for nm, title in missing_picons[:120]:
+        out.append("- %s [%s]" % (nm, title))
+    if len(missing_picons) > 120:
+        out.append("... oraz %d kolejnych" % (len(missing_picons)-120))
+    write_text(DETAIL_REPORT_PATH, "\n".join(out) + "\n")
+    return "Sprawdzono kanałów: %d\nBrak piconów: %d\n\nSzczegóły: %s" % (total, len(missing_picons), DETAIL_REPORT_PATH)
+
+
+def list_backup_files():
+    arr = []
+    if os.path.isdir(BACKUP_DIR):
+        for fn in os.listdir(BACKUP_DIR):
+            if fn.endswith(".tar.gz"):
+                full = os.path.join(BACKUP_DIR, fn)
+                arr.append((full, os.path.getmtime(full)))
+    arr.sort(key=lambda x: x[1], reverse=True)
+    return [x[0] for x in arr]
+
+
+def history_append(summary):
+    try:
+        ensure_dir(os.path.dirname(HISTORY_PATH))
+        line = time.strftime("%Y-%m-%d %H:%M:%S") + " | " + safe_text_line(summary)
+        old = read_text(HISTORY_PATH) if os.path.exists(HISTORY_PATH) else ""
+        write_text(HISTORY_PATH, old + line + "\n")
+    except Exception:
+        pass
+
+
+def show_history_text():
+    if not os.path.isfile(HISTORY_PATH):
+        return "Brak historii aktualizacji."
+    txt = read_text(HISTORY_PATH)
+    return txt[-4000:] if len(txt) > 4000 else txt
+
+
+def system_diagnostics_report():
+    lines = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Diagnostyka systemu", ""]
+    try:
+        import sys
+        lines.append("Python: %s" % sys.version.replace("\n", " "))
+    except Exception:
+        pass
+    for p in ["/etc/issue", "/etc/image-version"]:
+        try:
+            if os.path.isfile(p):
+                lines.append("%s: %s" % (p, read_text(p)[:300].replace("\n", " | ")))
+        except Exception:
+            pass
+    files = list_tv_bouquet_files()
+    lines.append("Bukiety TV: %d" % len(files))
+    try:
+        local_db = load_local_lamedb()
+        lines.append("Lamedb: %s" % (local_db.get("path") or "brak"))
+        lines.append("Services w lamedb: %d" % len(local_db.get("services") or {}))
+        lines.append("Transpondery w lamedb: %d" % len(local_db.get("transponders") or {}))
+    except Exception as e:
+        lines.append("Lamedb: błąd odczytu: %s" % str(e))
+    dvbt = 0; iptv = 0; sat = 0
+    try:
+        names = (load_local_lamedb().get("names") or {})
+        for fn in files:
+            title = bouquet_title_from_file(fn)
+            if is_dvbt_bouquet_title(title):
+                dvbt += 1
+            for e in parse_bouquet_entries(fn, names)[1]:
+                if is_iptv_ref(e.get("ref")): iptv += 1
+                elif is_dvbt_ref(e.get("ref")): dvbt += 1
+                elif valid_dvb_service_ref(e.get("ref")): sat += 1
+    except Exception:
+        pass
+    lines.append("Kanały SAT: %d" % sat)
+    lines.append("Pozycje DVB-T/DVB-C: %d" % dvbt)
+    lines.append("Pozycje IPTV/stream: %d" % iptv)
+    lines.append("Backup dir: %s" % BACKUP_DIR)
+    write_text(DIAGNOSTIC_PATH, "\n".join(lines) + "\n")
+    return "Diagnostyka zapisana:\n%s" % DIAGNOSTIC_PATH
+
+
+def export_support_zip():
+    system_diagnostics_report()
+    try:
+        z = zipfile.ZipFile(SUPPORT_ZIP_PATH, "w", zipfile.ZIP_DEFLATED)
+        for p in [REPORT_PATH, DETAIL_REPORT_PATH, USER_REPORT_PATH, DIAGNOSTIC_PATH, ERROR_PATH, HISTORY_PATH, UPDATE_INFO_PATH]:
+            if os.path.isfile(p):
+                z.write(p, os.path.basename(p))
+        z.close()
+        return SUPPORT_ZIP_PATH
+    except Exception:
+        raise
+
+
+def normalize_channel_names_report(do_write=True):
+    local_db = load_local_lamedb()
+    names = local_db.get("names") or {}
+    changed = 0
+    details = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Normalizacja nazw kanałów", ""]
+    for fn in list_tv_bouquet_files():
+        try:
+            title = bouquet_title_from_file(fn)
+            if is_dvbt_bouquet_title(title):
+                continue
+            lines = read_text(fn).splitlines()
+            dirty = False
+            for i, line in enumerate(lines):
+                if line.startswith("#DESCRIPTION "):
+                    name = line[len("#DESCRIPTION "):]
+                    new = re.sub(r"[_\s]+$", "", name).strip()
+                    new = re.sub(r"\s+", " ", new)
+                    if new and new != name and not is_credit_description(name):
+                        details.append("%s: %s -> %s" % (title, name, new))
+                        lines[i] = "#DESCRIPTION %s" % new
+                        changed += 1
+                        dirty = True
+            if dirty and do_write:
+                write_text(fn, "\n".join(lines) + "\n")
+        except Exception:
+            pass
+    if changed == 0:
+        details.append("Nie znaleziono nazw wymagających prostego czyszczenia.")
+    write_text(DETAIL_REPORT_PATH, "\n".join(details) + "\n")
+    return "Poprawione nazwy: %d\nSzczegóły: %s" % (changed, DETAIL_REPORT_PATH)
+
+
+def compare_control_sources_report(package_index):
+    std = load_online_package(package_index, SOURCE_STANDARD)
+    alt = load_online_package(clamp_package_index(SOURCE_ALTERNATIVE, package_index), SOURCE_ALTERNATIVE)
+    p1 = build_plan(std, None, True, REMOVE_REPORT)
+    p2 = build_plan(alt, None, True, REMOVE_REPORT)
+    out = ["by Paweł Pawełek * %s" % CONTACT, SUPPORT_TEXT + ".", "", "Porównanie źródeł kontroli", ""]
+    out.append("Standard: korekty %d, nowe %d, usunięcia/kandydaci %d" % (len(p1.get("ref_fixes") or []), p1.get("new_channels_added", 0), p1.get("removed_count", 0)))
+    out.append("Alternatywne: korekty %d, nowe %d, usunięcia/kandydaci %d" % (len(p2.get("ref_fixes") or []), p2.get("new_channels_added", 0), p2.get("removed_count", 0)))
+    s1 = set([x.get("new_ref") or x.get("ref") or "" for x in p1.get("ref_fixes", [])])
+    s2 = set([x.get("new_ref") or x.get("ref") or "" for x in p2.get("ref_fixes", [])])
+    out.append("Zgodne korekty reference: %d" % len(s1.intersection(s2)))
+    out.append("Różnice wymagające ręcznej kontroli: %d" % len(s1.symmetric_difference(s2)))
+    write_text(DETAIL_REPORT_PATH, "\n".join(out) + "\n")
+    return "Porównanie gotowe.\n\n%s" % "\n".join(out[4:])
+
+
+def set_bouquet_category(title, category):
+    state = load_state()
+    raw = state.get("bouquet_categories", "{}")
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {}
+    data[title] = category
+    save_state({"bouquet_categories": json.dumps(data)})
+
+
 class PPChannelSyncScreen(Screen):
     skin = """
     <screen name="PPChannelSyncScreen" position="center,center" size="1280,720" title="PP Channel Sync">
@@ -2108,8 +2660,18 @@ class PPChannelSyncScreen(Screen):
         self.package_index = clamp_package_index(self.source_index, cfg.get("package_index", 0))
         self.mode = cfg.get("mode", MODE_CORRECT)
         self.add_new_mode = cfg.get("add_new_mode", 1)
+        if self.add_new_mode >= len(ADD_NEW_MODES):
+            self.add_new_mode = 1
         self.remove_mode = cfg.get("remove_mode", REMOVE_REPORT)
         self.auto_mode = cfg.get("auto_mode", AUTO_OFF)
+        self.ui_mode = cfg.get("ui_mode", 1)
+        self.profile_mode = cfg.get("profile_mode", 1)
+        self.skip_iptv = cfg.get("skip_iptv", 0)
+        self.keep_names = cfg.get("keep_names", 0)
+        self.new_filter = cfg.get("new_filter", 0)
+        self.new_target = cfg.get("new_target", 0)
+        self.name_mode = cfg.get("name_mode", 0)
+        self.operator_profile = cfg.get("operator_profile", 0)
         self.match_mode = MATCH_SAFE
         self.last_remote = None
         self.last_plan = None
@@ -2119,36 +2681,28 @@ class PPChannelSyncScreen(Screen):
         except Exception:
             pass
         self["version"] = Label("v%s" % PLUGIN_VERSION)
-        self["status"] = Label(_("Opcje ustawiasz z listy, a zielony przycisk wykonuje wybrany tryb pracy"))
-        self["side_title"] = Label(_("Informacje"))
+        self["status"] = Label(tr2("OK wykonuje funkcję z listy, a zielony przycisk uruchamia ustawione zadanie korekty listy"))
+        self["side_title"] = Label(tr2("Informacje"))
         self["side_info"] = Label("")
-        self["support_title"] = Label(_("Wesprzyj"))
-        self["support_text"] = Label(_("Pomóż rozwijać\nlokalne projekty"))
-        self["help"] = Label(_("OK - zmień opcję / otwórz  |  Zielony - wykonaj wybrany tryb  |  MENU - raport  |  EXIT - wyjście"))
+        self["support_title"] = Label(tr2("Wesprzyj"))
+        self["support_text"] = Label(tr2("Pomóż rozwijać\nlokalne projekty"))
+        self["help"] = Label(tr2("OK - opcja / funkcja  |  Zielony - korekta listy  |  MENU - raport  |  EXIT - wyjście"))
         self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3  •  FB: Enigma 2 Oprogramowanie, dodatki" % (AUTHOR, CONTACT))
-        self["key_red"] = Label(_("Czerwony: wyjście"))
-        self["key_green"] = Label(_("Zielony: wykonaj"))
-        self["key_yellow"] = Label(_("Żółty: kopia"))
-        self["key_blue"] = Label(_("Niebieski: przywróć"))
+        self["key_red"] = Label(tr2("Czerwony: wyjście"))
+        self["key_green"] = Label(tr2("Zielony: korekta listy"))
+        self["key_yellow"] = Label(tr2("Żółty: kopia"))
+        self["key_blue"] = Label(tr2("Niebieski: przywróć"))
         self["menu"] = MenuList([])
         try:
             from enigma import gFont
-            self["menu"].l.setFont(0, gFont("Regular", 28))
-            self["menu"].l.setItemHeight(44)
+            self["menu"].l.setFont(0, gFont("Regular", 25))
+            self["menu"].l.setItemHeight(38)
         except Exception:
             pass
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions", "DirectionActions", "MenuActions"], {
-            "ok": self.ok,
-            "cancel": self.close,
-            "red": self.close,
-            "green": self.run_green,
-            "yellow": self.backup_now,
-            "blue": self.restore_last,
-            "left": self.left,
-            "right": self.right,
-            "menu": self.show_last_report,
-            "up": self.up,
-            "down": self.down,
+            "ok": self.ok, "cancel": self.close, "red": self.close, "green": self.run_green_mode,
+            "yellow": self.backup_now, "blue": self.restore_last, "left": self.left, "right": self.right,
+            "menu": self.show_last_report, "up": self.up, "down": self.down,
         }, -1)
         self.refresh_menu()
         try:
@@ -2156,26 +2710,70 @@ class PPChannelSyncScreen(Screen):
         except Exception:
             pass
 
-    def menu_items(self):
+    def setting_items(self):
         packages = packages_for_source(self.source_index)
         self.package_index = clamp_package_index(self.source_index, self.package_index)
         return [
-            "%s:  %s" % (_("Źródło kontroli"), _(SOURCE_OPTIONS[self.source_index][0])),
-            "%s:  %s" % (_("Pakiet kontrolny"), packages[self.package_index][0]),
-            "%s: %s" % (_("Tryb pracy zielonego"), _(SYNC_MODES[self.mode][0])),
-            "%s: %s" % (_("Dopisywanie nowych kanałów"), _(ADD_NEW_MODES[self.add_new_mode][0])),
-            "%s: %s" % (_("Usuwanie nieaktualnych kanałów"), _(REMOVE_MODES[self.remove_mode][0])),
-            "%s: %s" % (_("Automatyczna aktualizacja"), _(AUTO_UPDATE_MODES[self.auto_mode][0])),
-            _("Utwórz kopię bezpieczeństwa teraz"),
-            _("Przywróć ostatnią kopię bezpieczeństwa"),
-            _("Pokaż ostatni raport"),
-            _("Pokaż szczegółowy raport zmian"),
-            _("Aktualizuj wtyczkę z GitHub"),
-            _("Informacje o działaniu wtyczki"),
+            ("setting", "ui_mode", "%s: %s" % (tr2("Tryb interfejsu"), tr2(UI_MODES[self.ui_mode][0])), UI_MODES[self.ui_mode][1]),
+            ("setting", "profile_mode", "%s: %s" % (tr2("Profil pracy"), tr2(PROFILE_MODES[self.profile_mode][0])), PROFILE_MODES[self.profile_mode][1]),
+            ("setting", "source_index", "%s:  %s" % (tr2("Źródło kontroli"), tr2(SOURCE_OPTIONS[self.source_index][0])), SOURCE_OPTIONS[self.source_index][1]),
+            ("setting", "package_index", "%s:  %s" % (tr2("Pakiet kontrolny"), packages[self.package_index][0]), tr2("Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania.")),
+            ("setting", "mode", "%s: %s" % (tr2("Tryb pracy zielonego"), tr2(SYNC_MODES[self.mode][0])), SYNC_MODES[self.mode][1]),
+            ("setting", "add_new_mode", "%s: %s" % (tr2("Dopisywanie nowych kanałów"), tr2(ADD_NEW_MODES[self.add_new_mode][0])), ADD_NEW_MODES[self.add_new_mode][1]),
+            ("setting", "remove_mode", "%s: %s" % (tr2("Usuwanie nieaktualnych kanałów"), tr2(REMOVE_MODES[self.remove_mode][0])), REMOVE_MODES[self.remove_mode][1]),
+            ("setting", "auto_mode", "%s: %s" % (tr2("Automatyczna aktualizacja"), tr2(AUTO_UPDATE_MODES[self.auto_mode][0])), AUTO_UPDATE_MODES[self.auto_mode][1]),
+            ("setting", "skip_iptv", "%s: %s" % (tr2("Ochrona IPTV/streamów"), tr2(YESNO_OPTIONS[self.skip_iptv][0])), "Domyślnie wtyczka pomija streamy IPTV/4097/5001/5002."),
+            ("setting", "keep_names", "%s: %s" % (tr2("Zachowaj moje nazwy kanałów"), tr2(YESNO_OPTIONS[self.keep_names][0])), "Wtyczka nie nadpisuje nazw kanałów użytkownika. Normalizacja jest osobną funkcją."),
+            ("setting", "new_filter", "%s: %s" % (tr2("Filtr nowych kanałów"), tr2(NEW_FILTER_OPTIONS[self.new_filter][0])), NEW_FILTER_OPTIONS[self.new_filter][1]),
+            ("setting", "new_target", "%s: %s" % (tr2("Miejsce nowych kanałów"), tr2(BOUQUET_TARGET_OPTIONS[self.new_target][0])), BOUQUET_TARGET_OPTIONS[self.new_target][1]),
+            ("setting", "name_mode", "%s: %s" % (tr2("Zachowaj moje nazwy kanałów"), tr2(NAME_MODE_OPTIONS[self.name_mode][0])), NAME_MODE_OPTIONS[self.name_mode][1]),
+            ("setting", "operator_profile", "%s: %s" % (tr2("Profil operatora"), tr2(OPERATOR_PROFILES[self.operator_profile][0])), OPERATOR_PROFILES[self.operator_profile][1]),
         ]
 
+    def action_items(self):
+        return [
+            ("action", "quick", tr2("Szybka naprawa listy"), "Jedno kliknięcie: kopia, bezpieczna korekta, raport. Nie rusza DVB-T/DVB-C/IPTV."),
+            ("action", "status", tr2("Sprawdź listę i pokaż ocenę"), "Pokazuje prostą ocenę stanu listy: dobra, drobne zmiany albo wymaga korekty."),
+            ("action", "single_bouquet", tr2("Aktualizuj wybrany bukiet"), "Wybierz jeden bukiet. Wtyczka pracuje tylko na nim i nie rusza reszty listy."),
+            ("action", "single_channel", tr2("Napraw pojedynczy kanał"), "Najpierw wybierz bukiet, potem kanał. Wtyczka sprawdzi tylko tę jedną pozycję."),
+            ("action", "rename_bouquet", tr2("Zmień nazwę bukietu"), "Zmienia nazwę wybranego bukietu bez ruszania kanałów i kolejności."),
+            ("action", "new_wizard", tr2("Kreator nowych kanałów"), "Pokazuje kanały, które można dopisać. Można je dodać na końcu bukietu albo do osobnego bukietu."),
+            ("action", "duplicates", tr2("Znajdź duplikaty kanałów"), "Raportuje kanały występujące kilka razy w listach."),
+            ("action", "search", tr2("Szukaj kanału w liście"), "Wyszukuje kanał i pokazuje, w jakich bukietach oraz pozycjach występuje."),
+            ("action", "epg_picons", tr2("Sprawdź EPG i picony"), "Sprawdza picony i przygotowuje raport kanałów wymagających kontroli EPG/piconów."),
+            ("action", "simple_report", tr2("Raport prosty dla użytkownika"), "Krótki raport bez technicznych szczegółów."),
+            ("action", "tech_report", tr2("Raport techniczny"), "Szczegółowy raport dla autora lub zaawansowanych użytkowników."),
+            ("action", "compare_sources", tr2("Porównaj źródła kontroli"), "Porównuje wynik źródła Standard i Alternatywne."),
+            ("action", "tag_bouquet", tr2("Ustaw typ/kategorię bukietu"), "Ręczne przypisanie kategorii bukietu: Polska, Canal+, Polsat, Sport, FTA itd."),
+            ("action", "history", tr2("Historia aktualizacji"), "Pokazuje ostatnie działania wtyczki."),
+            ("action", "backup_manager", tr2("Menedżer kopii bezpieczeństwa"), "Lista kopii z możliwością przywrócenia wybranej kopii."),
+            ("action", "diagnostics", tr2("Diagnostyka systemu"), "Zbiera informacje o systemie, Pythonie, lamedb i liczbie kanałów."),
+            ("action", "support_zip", tr2("Przygotuj raport do wysłania"), "Tworzy ZIP z raportami i diagnostyką do wysłania autorowi."),
+            ("action", "first_wizard", tr2("Kreator pierwszego uruchomienia"), "Krótki przewodnik dla początkujących."),
+            ("action", "normalize_names", tr2("Normalizuj nazwy kanałów"), "Czyści końcowe podkreślenia, podwójne spacje i proste śmieci w opisach kanałów."),
+            ("action", "backup_now", tr2("Utwórz kopię bezpieczeństwa teraz"), "Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv."),
+            ("action", "restore_last", tr2("Przywróć ostatnią kopię bezpieczeństwa"), "Przywraca ostatnią kopię wykonaną przez PP Channel Sync."),
+            ("action", "update_plugin", tr2("Aktualizuj wtyczkę z GitHub"), "Sprawdza update.json na GitHub i instaluje nowszą wersję wtyczki."),
+            ("action", "info", tr2("Informacje o działaniu wtyczki"), "Informacje o działaniu, bezpieczeństwie i autorze."),
+        ]
+
+    def menu_data(self):
+        items = []
+        if self.ui_mode == 0:
+            items.extend([self.setting_items()[0], self.setting_items()[1], self.setting_items()[2], self.setting_items()[3], self.setting_items()[5], self.setting_items()[7]])
+            simple_keys = set(["quick", "status", "single_bouquet", "rename_bouquet", "new_wizard", "duplicates", "epg_picons", "backup_manager", "restore_last", "update_plugin", "info"])
+            items.extend([x for x in self.action_items() if x[1] in simple_keys])
+        else:
+            items.extend(self.setting_items())
+            items.extend(self.action_items())
+        return items
+
+    def menu_items(self):
+        return [item[2] for item in self.menu_data()]
+
     def refresh_menu(self):
-        self["menu"].setList(self.menu_items())
+        self._menu_data = self.menu_data()
+        self["menu"].setList([x[2] for x in self._menu_data])
         self.update_side_info()
 
     def selected_index(self):
@@ -2193,189 +2791,467 @@ class PPChannelSyncScreen(Screen):
         except Exception:
             return 0
 
+    def current_item(self):
+        data = getattr(self, "_menu_data", self.menu_data())
+        idx = self.selected_index()
+        if idx < 0 or idx >= len(data):
+            return data[0]
+        return data[idx]
+
     def update_side_info(self):
-        idx = self.selected_index()
-        self["side_title"].setText(_("Opis opcji"))
-        if idx == 0:
-            txt = _(SOURCE_OPTIONS[self.source_index][1]) + "\n\n" + _("Standard / Alternatywne przełączasz OK albo Lewo/Prawo.")
-        elif idx == 1:
-            txt = _("Wybierz zakres kontroli zgodny z listą, którą masz na tunerze.\n\nPakiet służy tylko jako punkt porównania.")
-        elif idx == 2:
-            txt = _(SYNC_MODES[self.mode][1]) + "\n\n" + _("Zielony przycisk wykonuje wybrany tryb.")
-        elif idx == 3:
-            txt = _(ADD_NEW_MODES[self.add_new_mode][1])
-        elif idx == 4:
-            txt = _(REMOVE_MODES[self.remove_mode][1])
-        elif idx == 5:
-            txt = _(AUTO_UPDATE_MODES[self.auto_mode][1])
-        elif idx == 6:
-            txt = _("Tworzy kopię lamedb, lamedb5, bouquets.tv i wszystkich userbouquet.*.tv.")
-        elif idx == 7:
-            txt = _("Przywraca ostatnią kopię wykonaną przez PP Channel Sync.")
-        elif idx == 8:
-            txt = _("Pokazuje ostatni raport skrócony. MENU działa tak samo z każdego miejsca ekranu.")
-        elif idx == 9:
-            txt = _("Pokazuje szczegółowy raport: dodane, usunięte, poprawione i pominięte kanały.")
-        elif idx == 10:
-            txt = _("Sprawdza update.json na GitHub, porównuje wersję, pobiera najnowszy plik IPK i instaluje aktualizację.")
-        else:
-            txt = _("Autor: by Paweł Pawełek\nKontakt: aio-iptv@wp.pl\n\nDVB-T/DVB-C jest pomijane. Wtyczka nie zmienia głowicy, sieci, skina ani rozdzielczości.")
-        self["side_info"].setText(txt)
+        item = self.current_item()
+        self["side_title"].setText(tr2("Opis opcji"))
+        self["side_info"].setText(tr2(item[3]) if len(item) > 3 else "")
+
+    def save_current_settings(self):
+        save_settings({"source_index": self.source_index, "package_index": self.package_index, "mode": self.mode, "add_new_mode": self.add_new_mode, "remove_mode": self.remove_mode, "auto_mode": self.auto_mode, "ui_mode": self.ui_mode, "profile_mode": self.profile_mode, "skip_iptv": self.skip_iptv, "keep_names": self.keep_names, "new_filter": self.new_filter, "new_target": self.new_target, "name_mode": self.name_mode, "operator_profile": self.operator_profile})
+
+    def cycle_setting(self, direction):
+        item = self.current_item()
+        if item[0] != "setting":
+            return False
+        key = item[1]
+        if key == "ui_mode": self.ui_mode = (self.ui_mode + direction) % len(UI_MODES)
+        elif key == "profile_mode": self.profile_mode = (self.profile_mode + direction) % len(PROFILE_MODES)
+        elif key == "source_index":
+            self.source_index = (self.source_index + direction) % len(SOURCE_OPTIONS)
+            self.package_index = clamp_package_index(self.source_index, self.package_index)
+        elif key == "package_index":
+            packages = packages_for_source(self.source_index)
+            self.package_index = (self.package_index + direction) % len(packages)
+        elif key == "mode": self.mode = (self.mode + direction) % len(SYNC_MODES)
+        elif key == "add_new_mode": self.add_new_mode = (self.add_new_mode + direction) % len(ADD_NEW_MODES)
+        elif key == "remove_mode": self.remove_mode = (self.remove_mode + direction) % len(REMOVE_MODES)
+        elif key == "auto_mode": self.auto_mode = (self.auto_mode + direction) % len(AUTO_UPDATE_MODES)
+        elif key == "skip_iptv": self.skip_iptv = (self.skip_iptv + direction) % len(YESNO_OPTIONS)
+        elif key == "keep_names": self.keep_names = (self.keep_names + direction) % len(YESNO_OPTIONS)
+        elif key == "new_filter": self.new_filter = (self.new_filter + direction) % len(NEW_FILTER_OPTIONS)
+        elif key == "new_target":
+            self.new_target = (self.new_target + direction) % len(BOUQUET_TARGET_OPTIONS)
+            self.add_new_mode = 2 if self.new_target == 1 else (0 if self.new_target == 2 else 1)
+        elif key == "name_mode": self.name_mode = (self.name_mode + direction) % len(NAME_MODE_OPTIONS)
+        elif key == "operator_profile": self.operator_profile = (self.operator_profile + direction) % len(OPERATOR_PROFILES)
+        self.save_current_settings()
+        self.refresh_menu()
+        return True
+
     def up(self):
-        self["menu"].up()
-        self.update_side_info()
-
+        self["menu"].up(); self.update_side_info()
     def down(self):
-        self["menu"].down()
-        self.update_side_info()
-
+        self["menu"].down(); self.update_side_info()
     def left(self):
-        idx = self.selected_index()
-        if idx == 0:
-            self.source_index = (self.source_index - 1) % len(SOURCE_OPTIONS)
-            self.package_index = clamp_package_index(self.source_index, self.package_index)
-        elif idx == 1:
-            self.package_index = (self.package_index - 1) % len(packages_for_source(self.source_index))
-        elif idx == 2:
-            self.mode = (self.mode - 1) % len(SYNC_MODES)
-        elif idx == 3:
-            self.add_new_mode = (self.add_new_mode - 1) % len(ADD_NEW_MODES)
-        elif idx == 4:
-            self.remove_mode = (self.remove_mode - 1) % len(REMOVE_MODES)
-        elif idx == 5:
-            self.auto_mode = (self.auto_mode - 1) % len(AUTO_UPDATE_MODES)
-        save_settings({"source_index": self.source_index, "package_index": self.package_index, "mode": self.mode, "add_new_mode": self.add_new_mode, "remove_mode": self.remove_mode, "auto_mode": self.auto_mode})
-        self.refresh_menu()
-
+        if not self.cycle_setting(-1):
+            self.update_side_info()
     def right(self):
-        idx = self.selected_index()
-        if idx == 0:
-            self.source_index = (self.source_index + 1) % len(SOURCE_OPTIONS)
-            self.package_index = clamp_package_index(self.source_index, self.package_index)
-        elif idx == 1:
-            self.package_index = (self.package_index + 1) % len(packages_for_source(self.source_index))
-        elif idx == 2:
-            self.mode = (self.mode + 1) % len(SYNC_MODES)
-        elif idx == 3:
-            self.add_new_mode = (self.add_new_mode + 1) % len(ADD_NEW_MODES)
-        elif idx == 4:
-            self.remove_mode = (self.remove_mode + 1) % len(REMOVE_MODES)
-        elif idx == 5:
-            self.auto_mode = (self.auto_mode + 1) % len(AUTO_UPDATE_MODES)
-        save_settings({"source_index": self.source_index, "package_index": self.package_index, "mode": self.mode, "add_new_mode": self.add_new_mode, "remove_mode": self.remove_mode, "auto_mode": self.auto_mode})
-        self.refresh_menu()
-
+        if not self.cycle_setting(1):
+            self.update_side_info()
     def ok(self):
-        idx = self.selected_index()
-        if idx in (0, 1, 2, 3, 4, 5):
+        item = self.current_item()
+        if item[0] == "setting":
             self.right()
-        elif idx == 6:
-            self.backup_now()
-        elif idx == 7:
-            self.restore_last()
-        elif idx == 8:
-            self.show_last_report()
-        elif idx == 9:
-            self.show_detail_report()
-        elif idx == 10:
-            self.update_plugin_from_github()
-        elif idx == 11:
-            self.info()
-
-    def run_green(self):
-        if self.mode == MODE_REPORT:
-            self.check_changes()
         else:
-            self.apply_update()
+            self.run_current()
+
+    def run_green_mode(self):
+        # Zielony przycisk wykonuje wyłącznie ustawione zadanie korekty/sprawdzenia listy.
+        # Najpierw aktualizujemy status i dopiero po krótkiej chwili startujemy pracę,
+        # żeby użytkownik widział, że przycisk został przyjęty.
+        try:
+            self["status"].setText(tr2("Trwa wykonywanie zadania listy. Proszę czekać..."))
+        except Exception:
+            pass
+        try:
+            from enigma import eTimer
+            self._green_timer = eTimer()
+            try:
+                self._green_timer.callback.append(self._run_green_mode_delayed)
+            except Exception:
+                self._green_timer_conn = self._green_timer.timeout.connect(self._run_green_mode_delayed)
+            try:
+                self._green_timer.start(250, True)
+            except Exception:
+                self._green_timer.startLongTimer(1)
+        except Exception:
+            self._run_green_mode_delayed()
+
+    def _run_green_mode_delayed(self):
+        try:
+            if self.mode == MODE_REPORT:
+                self.check_changes()
+            else:
+                self.apply_update()
+        except Exception as e:
+            try:
+                write_text(ERROR_PATH, "%s\n\n%s" % (str(e), traceback.format_exc()))
+            except Exception:
+                pass
+            try:
+                self["status"].setText(tr2("Błąd zadania listy. Szczegóły w raporcie błędu."))
+            except Exception:
+                pass
+
+    def run_current(self):
+        item = self.current_item()
+        if item[0] == "setting":
+            self.right()
+            return
+        name = item[1]
+        if name == "quick": self.quick_repair()
+        elif name == "status": self.check_status()
+        elif name == "single_bouquet": self.choose_bouquet_for_update()
+        elif name == "single_channel": self.choose_bouquet_for_channel()
+        elif name == "rename_bouquet": self.rename_bouquet()
+        elif name == "new_wizard": self.new_channels_wizard()
+        elif name == "duplicates": self.find_duplicates()
+        elif name == "search": self.search_channel()
+        elif name == "epg_picons": self.check_epg_picons()
+        elif name == "simple_report": self.show_user_report()
+        elif name == "tech_report": self.show_detail_report()
+        elif name == "compare_sources": self.compare_sources()
+        elif name == "tag_bouquet": self.tag_bouquet()
+        elif name == "history": self.show_history()
+        elif name == "backup_manager": self.backup_manager()
+        elif name == "diagnostics": self.diagnostics()
+        elif name == "support_zip": self.prepare_support_zip()
+        elif name == "first_wizard": self.first_wizard()
+        elif name == "normalize_names": self.normalize_names()
+        elif name == "backup_now": self.backup_now()
+        elif name == "restore_last": self.restore_last()
+        elif name == "update_plugin": self.update_plugin_from_github()
+        elif name == "info": self.info()
 
     def popup(self, text, mtype=MessageBox.TYPE_INFO, timeout=0):
-        self.session.open(MessageBox, text, type=mtype, timeout=timeout)
+        # Nie każdy obraz Enigma2 pozwala otwierać MessageBox z każdego kontekstu
+        # (np. po zadaniu uruchomionym z timerem). Dlatego popup jest bezpieczny:
+        # jeśli MessageBox nie może zostać otwarty, nie powodujemy GSOD, tylko
+        # zapisujemy komunikat do raportu i pokazujemy skrót w pasku statusu.
+        try:
+            self.session.open(MessageBox, text, type=mtype, timeout=timeout)
+        except Exception:
+            try:
+                write_text(ERROR_PATH, str(text) + "\n")
+            except Exception:
+                pass
+            try:
+                short = str(text).replace("\n", " ")
+                if len(short) > 120:
+                    short = short[:117] + "..."
+                self["status"].setText(short)
+            except Exception:
+                pass
+
+    def prepare_plan(self, single_files=None, force_report=False):
+        remote = load_online_package(self.package_index, self.source_index)
+        add_new = self.add_new_mode > 0
+        if self.new_target == 2:
+            add_new = False
+        # Wersja 1.2.0: zielona korekta nie usuwa automatycznie istniejących kanałów.
+        # Kandydaci do usunięcia trafiają wyłącznie do raportu. Usuwanie poprawnych pozycji
+        # było głównym źródłem problemów na listach autorskich, więc jest twardo wyłączone
+        # dla automatycznej korekty.
+        remove_mode = REMOVE_REPORT
+        if force_report:
+            remove_mode = REMOVE_REPORT
+        plan = build_plan(remote, None, add_new, remove_mode)
+        plan["new_channels_mode"] = self.add_new_mode
+        plan["new_filter"] = self.new_filter
+        if single_files:
+            plan = filter_plan_to_files(plan, single_files)
+            plan["new_channels_mode"] = self.add_new_mode
+        self.last_remote = remote
+        self.last_plan = plan
+        return plan
 
     def check_changes(self):
         try:
             self["status"].setText("Pobieranie bazy i kontrola Twojej listy...")
-            remote = load_online_package(self.package_index, self.source_index)
-            plan = build_plan(remote, None, self.add_new_mode == 1, self.remove_mode)
-            report = write_report(plan, self.mode, None)
-            self.last_remote = remote
-            self.last_plan = plan
+            plan = self.prepare_plan(force_report=True)
+            write_report(plan, MODE_REPORT, None)
+            write_user_friendly_report(plan)
             self["status"].setText("Raport gotowy: %s" % REPORT_PATH)
-            short = (
-                "Analiza zakończona.\n\n"
-                "Sprawdzone wpisy kanałów: %d\n"
-                "Referencje do korekty: %d\n"
-                "Aliasy EPG/service type: %d\n"
-                "Nowe kanały do dopisania: %d\n"
-                "Kanały do usunięcia: %d\n"
-                "Pominięte DVB-T/DVB-C: %d\n"
-                "Lamedb zaktualizowany: TAK\n\n"
-                "Gotowe bukiety nie będą dogrywane.\n"
-                "Szczegóły: %s"
-            ) % (plan["checked"], len(plan["ref_fixes"]), len(plan.get("epg_type_aliases", [])), plan["new_channels_added"], plan.get("removed_count", 0), len(plan.get("skipped_dvbt_bouquets", [])), DETAIL_REPORT_PATH)
-            self.popup(short)
+            self.popup("Analiza zakończona.\n\n" + plan_status_text(plan) + "\n\nRaport: %s\nRaport prosty: %s" % (REPORT_PATH, USER_REPORT_PATH))
         except Exception as e:
             self["status"].setText("Błąd analizy")
-            self.popup("Błąd podczas analizy:\n%s" % str(e), MessageBox.TYPE_ERROR)
+            self.popup("Nie mogę bezpiecznie odczytać lub sprawdzić listy. Lista nie została zmieniona.\n\n%s" % str(e), MessageBox.TYPE_ERROR)
 
     def apply_update(self):
         try:
-            if self.mode == MODE_REPORT:
-                self.popup("Wybrany tryb to 'Raport bez zapisu'. Zmień tryb pracy, jeśli chcesz wykonać korektę.", MessageBox.TYPE_INFO)
-                return
-            if self.last_plan is None:
-                remote = load_online_package(self.package_index, self.source_index)
-                plan = build_plan(remote, None, self.add_new_mode == 1, self.remove_mode)
-                write_report(plan, self.mode, None)
-                self.last_remote = remote
-                self.last_plan = plan
+            if self.mode == MODE_REPORT or self.profile_mode == 3:
+                self.check_changes(); return
+            plan = self.last_plan or self.prepare_plan()
+            plan["new_channels_mode"] = self.add_new_mode
             self["status"].setText("Wykonywanie korekty posiadanej listy...")
-            result = apply_plan(self.last_plan, self.mode)
+            write_report(plan, MODE_CORRECT, None)
+            write_user_friendly_report(plan)
+            result = apply_plan(plan, MODE_CORRECT)
             self["status"].setText("Korekta zakończona")
             self.popup(result)
         except Exception as e:
             self["status"].setText("Błąd korekty")
             err = "%s\n\n%s" % (str(e), traceback.format_exc())
+            try: write_text(ERROR_PATH, err)
+            except Exception: pass
+            self.popup("Nie mogę bezpiecznie wykonać korekty. Lista nie powinna zostać zmieniona bez kopii.\n\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH), MessageBox.TYPE_ERROR)
+
+    def quick_repair(self):
+        old_remove = self.remove_mode
+        old_mode = self.mode
+        self.remove_mode = REMOVE_REPORT
+        self.mode = MODE_CORRECT
+        try:
+            self.apply_update()
+        finally:
+            self.remove_mode = old_remove
+            self.mode = old_mode
+            self.save_current_settings()
+
+    def check_status(self):
+        try:
+            plan = self.prepare_plan(force_report=True)
+            write_report(plan, MODE_REPORT, None)
+            write_user_friendly_report(plan)
+            self.popup(plan_status_text(plan) + "\n\nRaport prosty: %s" % USER_REPORT_PATH)
+        except Exception as e:
+            self.popup("Błąd sprawdzania listy:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def choose_bouquet_for_update(self):
+        choices = [(bouquet_title_from_file(fn), fn) for fn in list_tv_bouquet_files() if not is_dvbt_bouquet_title(bouquet_title_from_file(fn))]
+        if not choices:
+            self.popup("Nie znaleziono bukietów SAT do aktualizacji.", MessageBox.TYPE_ERROR); return
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(self._bouquet_update_selected, ChoiceBox, title="Wybierz bukiet do aktualizacji", list=choices)
+        except Exception:
+            self._bouquet_update_selected(choices[0])
+
+    def _bouquet_update_selected(self, choice):
+        if not choice: return
+        title, fn = choice
+        try:
+            plan = self.prepare_plan([fn])
+            write_report(plan, self.mode, None)
+            write_user_friendly_report(plan, "PP Channel Sync - raport bukietu %s" % title)
+            if self.mode == MODE_REPORT:
+                self.popup("Raport bukietu gotowy.\n\n%s\n\n%s" % (title, plan_status_text(plan)))
+                return
+            result = apply_plan(plan, MODE_CORRECT)
+            self.popup("Zaktualizowano wybrany bukiet:\n%s\n\n%s" % (title, result))
+        except Exception as e:
+            self.popup("Błąd aktualizacji bukietu %s:\n%s" % (title, str(e)), MessageBox.TYPE_ERROR)
+
+    def choose_bouquet_for_channel(self):
+        choices = [(bouquet_title_from_file(fn), fn) for fn in list_tv_bouquet_files() if not is_dvbt_bouquet_title(bouquet_title_from_file(fn))]
+        if not choices:
+            self.popup("Brak bukietów SAT."); return
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(self._channel_bouquet_selected, ChoiceBox, title="1/2 Wybierz bukiet", list=choices)
+        except Exception:
+            self._channel_bouquet_selected(choices[0])
+
+    def _channel_bouquet_selected(self, choice):
+        if not choice: return
+        title, fn = choice
+        try:
+            names = load_local_lamedb().get("names") or {}
+            entries = [e for e in parse_bouquet_entries(fn, names)[1] if is_sat_entry(e) and name_is_usable(e.get("name"))]
+            choices = [(e.get("name"), e) for e in entries]
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(lambda ch: self._repair_channel_selected(fn, title, ch), ChoiceBox, title="2/2 Wybierz kanał", list=choices)
+        except Exception as e:
+            self.popup("Nie udało się wczytać kanałów:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def _repair_channel_selected(self, fn, title, choice):
+        if not choice: return
+        name, entry = choice
+        try:
+            plan = self.prepare_plan([fn])
+            # Zostaw tylko linie dotyczące wybranego indeksu; lamedb appends zostają jako ochrona.
+            fdata = plan.get("files", {}).get(fn)
+            if fdata:
+                changes = fdata.get("changes") or {}
+                fdata["changes"] = dict((k, v) for k, v in changes.items() if k == entry.get("service_index"))
+                plan["new_channels"] = {}
+                plan["removed_count"] = 0
+            write_report(plan, MODE_CORRECT, None)
+            if self.mode == MODE_REPORT:
+                self.popup("Raport dla kanału:\n%s\n\n%s" % (name, DETAIL_REPORT_PATH)); return
+            result = apply_plan(plan, MODE_CORRECT)
+            self.popup("Kanał sprawdzony/naprawiony:\n%s\n\n%s" % (name, result))
+        except Exception as e:
+            self.popup("Błąd naprawy kanału %s:\n%s" % (name, str(e)), MessageBox.TYPE_ERROR)
+
+    def new_channels_wizard(self):
+        try:
+            plan = self.prepare_plan(force_report=True)
+            count = plan.get("new_channels_added", 0)
+            write_user_friendly_report(plan, "PP Channel Sync - kreator nowych kanałów")
+            msg = "Znaleziono nowych kanałów: %d\n\nMiejsce dodania: %s\n\nTryb korekty może je dopisać zgodnie z ustawieniami.\nRaport: %s" % (count, BOUQUET_TARGET_OPTIONS[self.new_target][0], USER_REPORT_PATH)
+            self.popup(msg)
+        except Exception as e:
+            self.popup("Błąd kreatora nowych kanałów:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def find_duplicates(self):
+        try: self.popup(find_duplicate_channels_report())
+        except Exception as e: self.popup("Błąd duplikatów:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def search_channel(self):
+        try:
+            from Screens.VirtualKeyBoard import VirtualKeyBoard
+            self.session.openWithCallback(self._search_channel_text, VirtualKeyBoard, title="Szukaj kanału", text="")
+        except Exception:
+            self._search_channel_text("TVN")
+    def _search_channel_text(self, text):
+        if not text: return
+        try: self.popup(search_channel_report(text))
+        except Exception as e: self.popup("Błąd wyszukiwania:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def check_epg_picons(self):
+        try: self.popup(check_epg_picons_report())
+        except Exception as e: self.popup("Błąd kontroli EPG/piconów:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def show_user_report(self):
+        if not os.path.isfile(USER_REPORT_PATH):
             try:
-                write_text(ERROR_PATH, err)
+                plan = self.prepare_plan(force_report=True)
+                write_user_friendly_report(plan)
+            except Exception: pass
+        if not os.path.isfile(USER_REPORT_PATH):
+            self.popup("Brak raportu prostego."); return
+        text = read_text(USER_REPORT_PATH)
+        if len(text) > 5200: text = text[:5200] + "\n\n...\nPełny raport: %s" % USER_REPORT_PATH
+        self.popup(text)
+
+    def show_last_report(self):
+        if not os.path.isfile(REPORT_PATH):
+            self.popup("Brak raportu. Wybierz sprawdzenie listy albo raport prosty."); return
+        text = read_text(REPORT_PATH)
+        if len(text) > 4200: text = text[:4200] + "\n\n...\nPełny raport: %s" % REPORT_PATH
+        self.popup(text)
+
+    def show_detail_report(self):
+        if not os.path.isfile(DETAIL_REPORT_PATH):
+            self.popup("Brak raportu szczegółowego."); return
+        text = read_text(DETAIL_REPORT_PATH)
+        if len(text) > 5200: text = text[:5200] + "\n\n...\nPełny raport szczegółowy: %s" % DETAIL_REPORT_PATH
+        self.popup(text)
+
+    def compare_sources(self):
+        try: self.popup(compare_control_sources_report(self.package_index))
+        except Exception as e: self.popup("Błąd porównania źródeł:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def tag_bouquet(self):
+        choices = [(bouquet_title_from_file(fn), fn) for fn in list_tv_bouquet_files()]
+        if not choices: self.popup("Brak bukietów."); return
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(self._tag_bouquet_selected, ChoiceBox, title="Wybierz bukiet", list=choices)
+        except Exception:
+            self._tag_bouquet_selected(choices[0])
+    def _tag_bouquet_selected(self, choice):
+        if not choice: return
+        title, fn = choice
+        cats = [(x, x) for x in ["Polska", "Canal+", "Polsat Box", "Sport", "Filmy", "Dzieci", "FTA", "Muzyka", "Informacje", "Inne"]]
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(lambda c: self._category_selected(title, c), ChoiceBox, title="Wybierz typ bukietu", list=cats)
+        except Exception:
+            self._category_selected(title, cats[0])
+    def _category_selected(self, title, choice):
+        if not choice: return
+        set_bouquet_category(title, choice[1])
+        self.popup("Zapisano kategorię bukietu:\n%s -> %s" % (title, choice[1]))
+
+    def rename_bouquet(self):
+        choices = [(bouquet_title_from_file(fn), fn) for fn in list_tv_bouquet_files()]
+        if not choices:
+            self.popup("Brak bukietów do zmiany nazwy."); return
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(self._rename_bouquet_selected, ChoiceBox, title="Wybierz bukiet do zmiany nazwy", list=choices)
+        except Exception:
+            self._rename_bouquet_selected(choices[0])
+
+    def _rename_bouquet_selected(self, choice):
+        if not choice: return
+        title, fn = choice
+        self._rename_target = (title, fn)
+        try:
+            from Screens.VirtualKeyBoard import VirtualKeyBoard
+            self.session.openWithCallback(self._rename_bouquet_text_entered, VirtualKeyBoard, title="Nowa nazwa bukietu", text=title)
+        except Exception:
+            try:
+                from Screens.InputBox import InputBox
+                self.session.openWithCallback(self._rename_bouquet_text_entered, InputBox, title="Nowa nazwa bukietu", text=title)
             except Exception:
-                pass
-            self.popup("Błąd podczas korekty:\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH), MessageBox.TYPE_ERROR)
+                self.popup("Na tym obrazie nie znaleziono klawiatury ekranowej. Zmiana nazwy bukietu nie została wykonana.", MessageBox.TYPE_ERROR)
+
+    def _rename_bouquet_text_entered(self, new_title):
+        if not new_title: return
+        old_title, fn = getattr(self, "_rename_target", ("", ""))
+        try:
+            rename_bouquet_file(fn, new_title)
+            history_append("Zmieniono nazwę bukietu: %s -> %s" % (old_title, new_title))
+            self.popup("Zmieniono nazwę bukietu:\n%s\n\nna:\n%s" % (old_title, new_title))
+        except Exception as e:
+            self.popup("Błąd zmiany nazwy bukietu:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def show_history(self):
+        self.popup(show_history_text())
+
+    def backup_manager(self):
+        b = list_backup_files()
+        if not b: self.popup("Brak kopii bezpieczeństwa."); return
+        choices = [(os.path.basename(x), x) for x in b[:30]]
+        try:
+            from Screens.ChoiceBox import ChoiceBox
+            self.session.openWithCallback(self._backup_selected, ChoiceBox, title="Wybierz kopię do przywrócenia", list=choices)
+        except Exception:
+            self._backup_selected(choices[0])
+    def _backup_selected(self, choice):
+        if not choice: return
+        name, path = choice
+        try:
+            restore_backup(path)
+            self.popup("Przywrócono kopię:\n%s" % path)
+        except Exception as e:
+            self.popup("Nie udało się przywrócić kopii:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def diagnostics(self):
+        try: self.popup(system_diagnostics_report())
+        except Exception as e: self.popup("Błąd diagnostyki:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def prepare_support_zip(self):
+        try: self.popup("Raport do wysłania przygotowany:\n%s" % export_support_zip())
+        except Exception as e: self.popup("Błąd tworzenia ZIP:\n%s" % str(e), MessageBox.TYPE_ERROR)
+
+    def first_wizard(self):
+        text = "PP Channel Sync - kreator\n\n1. Zacznij od 'Sprawdź listę i pokaż ocenę'.\n2. Jeśli wynik jest dobry lub drobne zmiany, użyj 'Szybka naprawa listy'.\n3. Jeśli boisz się ruszać całą listę, wybierz 'Aktualizuj wybrany bukiet'.\n4. Nowe kanały znajdziesz na końcu pasujących bukietów albo w osobnym bukiecie, zależnie od ustawień.\n5. DVB-T/DVB-C i IPTV są chronione.\n\nŻółty przycisk tworzy kopię, niebieski ją przywraca."
+        self.popup(text)
+
+    def normalize_names(self):
+        self.session.openWithCallback(self._normalize_confirm, MessageBox, "Wyczyścić proste końcówki nazw kanałów, np. TVN HD_ -> TVN HD?\n\nWtyczka zrobi tylko proste czyszczenie opisów #DESCRIPTION.", type=MessageBox.TYPE_YESNO, default=False)
+    def _normalize_confirm(self, answer):
+        if not answer: return
+        try:
+            make_backup()
+            self.popup(normalize_channel_names_report(True))
+        except Exception as e:
+            self.popup("Błąd normalizacji nazw:\n%s" % str(e), MessageBox.TYPE_ERROR)
 
     def backup_now(self):
         try:
-            backup = make_backup()
-            self.popup("Kopia bezpieczeństwa utworzona:\n%s" % backup)
+            backup = make_backup(); self.popup("Kopia bezpieczeństwa utworzona:\n%s" % backup)
         except Exception as e:
             self.popup("Nie udało się utworzyć kopii:\n%s" % str(e), MessageBox.TYPE_ERROR)
 
     def restore_last(self):
         try:
             b = latest_backup()
-            if not b:
-                self.popup("Brak kopii bezpieczeństwa.", MessageBox.TYPE_ERROR)
-                return
-            restore_backup(b)
-            self.popup("Przywrócono ostatnią kopię:\n%s" % b)
+            if not b: self.popup("Brak kopii bezpieczeństwa.", MessageBox.TYPE_ERROR); return
+            restore_backup(b); self.popup("Przywrócono ostatnią kopię:\n%s" % b)
         except Exception as e:
             self.popup("Nie udało się przywrócić kopii:\n%s" % str(e), MessageBox.TYPE_ERROR)
-
-    def show_last_report(self):
-        if not os.path.isfile(REPORT_PATH):
-            self.popup("Brak raportu. Najpierw ustaw tryb raportu i naciśnij zielony przycisk.")
-            return
-        text = read_text(REPORT_PATH)
-        if len(text) > 4200:
-            text = text[:4200] + "\n\n...\nPełny raport: %s" % REPORT_PATH
-        self.popup(text)
-
-    def show_detail_report(self):
-        if not os.path.isfile(DETAIL_REPORT_PATH):
-            self.popup("Brak raportu szczegółowego. Najpierw ustaw tryb raportu i naciśnij zielony przycisk.")
-            return
-        text = read_text(DETAIL_REPORT_PATH)
-        if len(text) > 5200:
-            text = text[:5200] + "\n\n...\nPełny raport szczegółowy: %s" % DETAIL_REPORT_PATH
-        self.popup(text)
 
     def update_plugin_from_github(self):
         try:
@@ -2383,78 +3259,43 @@ class PPChannelSyncScreen(Screen):
             manifest = fetch_json(UPDATE_MANIFEST_URL)
             remote_version = _manifest_value(manifest, "version", "latest_version")
             notes = manifest.get("notes", "")
-            if isinstance(notes, list):
-                notes = "\n".join(["- " + str(x) for x in notes])
-            if not remote_version:
-                raise Exception("Plik update.json nie zawiera pola version.")
+            if isinstance(notes, list): notes = "\n".join(["- " + str(x) for x in notes])
+            if not remote_version: raise Exception("Plik update.json nie zawiera pola version.")
             if not is_newer_version(remote_version, PLUGIN_VERSION):
                 msg = "Masz aktualną wersję PP Channel Sync.\n\nZainstalowana: %s\nNa GitHub: %s" % (PLUGIN_VERSION, remote_version)
-                write_text(UPDATE_INFO_PATH, msg + "\n")
-                self["status"].setText("Wtyczka jest aktualna")
-                self.popup(msg)
-                return
+                write_text(UPDATE_INFO_PATH, msg + "\n"); self["status"].setText("Wtyczka jest aktualna"); self.popup(msg); return
             msg = "Dostępna aktualizacja PP Channel Sync.\n\nZainstalowana: %s\nNowa: %s" % (PLUGIN_VERSION, remote_version)
-            if notes:
-                msg += "\n\nZmiany:\n" + notes[:1600]
+            if notes: msg += "\n\nZmiany:\n" + notes[:1600]
             msg += "\n\nRozpocząć pobieranie i instalację?"
             self.session.openWithCallback(lambda answer: self._update_confirmed(answer, manifest), MessageBox, msg, type=MessageBox.TYPE_YESNO, default=True)
         except Exception as e:
             self["status"].setText("Błąd aktualizacji")
             err = "%s\n\n%s" % (str(e), traceback.format_exc())
-            try:
-                write_text(UPDATE_INFO_PATH, err)
-            except Exception:
-                pass
+            try: write_text(UPDATE_INFO_PATH, err)
+            except Exception: pass
             self.popup("Nie udało się sprawdzić aktualizacji z GitHub:\n%s\n\nSzczegóły: %s" % (str(e), UPDATE_INFO_PATH), MessageBox.TYPE_ERROR)
 
     def _update_confirmed(self, answer, manifest):
         if not answer:
-            self.popup("Aktualizacja anulowana.")
-            return
+            self.popup("Aktualizacja anulowana."); return
         try:
             self["status"].setText("Pobieranie aktualizacji...")
             ipk = download_update_ipk(manifest)
             self["status"].setText("Instalacja aktualizacji...")
             log = install_ipk(ipk)
             version = _manifest_value(manifest, "version", "latest_version")
-            msg = (
-                "Aktualizacja została zainstalowana.\n\n"
-                "Nowa wersja: %s\n"
-                "Plik: %s\n\n"
-                "Wykonaj restart GUI, aby załadować nową wersję wtyczki.\n\n"
-                "Log: %s"
-            ) % (version, ipk, UPDATE_INFO_PATH)
-            self["status"].setText("Aktualizacja zainstalowana")
-            self.popup(msg, MessageBox.TYPE_INFO)
+            msg = "Aktualizacja została zainstalowana.\n\nNowa wersja: %s\nPlik: %s\n\nWykonaj restart GUI, aby załadować nową wersję wtyczki.\n\nLog: %s" % (version, ipk, UPDATE_INFO_PATH)
+            self["status"].setText("Aktualizacja zainstalowana"); self.popup(msg, MessageBox.TYPE_INFO)
         except Exception as e:
             self["status"].setText("Błąd instalacji aktualizacji")
             err = "%s\n\n%s" % (str(e), traceback.format_exc())
-            try:
-                write_text(UPDATE_INFO_PATH, err)
-            except Exception:
-                pass
+            try: write_text(UPDATE_INFO_PATH, err)
+            except Exception: pass
             self.popup("Nie udało się zainstalować aktualizacji:\n%s\n\nSzczegóły: %s" % (str(e), UPDATE_INFO_PATH), MessageBox.TYPE_ERROR)
 
     def info(self):
-        text = (
-            "PP Channel Sync v%s\n"
-            "%s\n\n"
-            "Wersja 1.0.17 działa w bezpiecznym trybie korekty technicznej i ma wybór źródła kontroli Standard / Alternatywne:\n"
-            "- nie instaluje gotowych bukietów,\n"
-            "- nie tworzy nowych bukietów,\n"
-            "- nie przebudowuje układu ani kolejności listy,\n"
-            "- aktualizuje lamedb bez podmiany całej bazy: zachowuje lokalne wpisy i dopisuje brakujące wpisy kontrolne,\n"
-            "- poprawnie rozpoznaje lamedb /4/ z dziesiętnym typem usługi, np. 25=0x19 i 31=0x1F,\n"
-            "- service reference poprawia tylko przy pewnym dopasowaniu,\n"
-            "- nowe kanały dopisuje tylko na końcu pasujących bukietów,\n"
-            "- usuwanie kanałów jest osobną opcją, domyślnie tylko raport,\n"
-            "- dodaje datę oraz @ PP Channel Sync na dole widoku bukietów,\n"
-            "- zapisuje raport skrócony i szczegółowy,\n"
-            "- tworzy kopię przed zapisem.\n\n"
-            "Wtyczka nie zmienia ustawień głowicy, sieci, skina ani rozdzielczości."
-        ) % (PLUGIN_VERSION, AUTHOR)
+        text = "PP Channel Sync v%s\n%s\n\nWersja 1.1.13 przywraca sprawdzony rdzeń korekty list i EPG z v1.0.17 oraz zachowuje narzędzia z gałęzi 1.1.x: tryb prosty/zaawansowany, pojedynczy bukiet, pojedynczy kanał, zmiana nazwy bukietu, raporty, kopie, diagnostyka i aktualizacja z GitHub.\n\nNajważniejsze: istniejąca lista ma być korygowana tak, aby kanały i EPG działały jak w stabilnej wersji 1.0.17. Wtyczka nie zmienia ustawień głowicy, sieci, skina ani rozdzielczości." % (PLUGIN_VERSION, AUTHOR)
         self.popup(text)
-
 
 def main(session, **kwargs):
     session.open(PPChannelSyncScreen)
@@ -2464,7 +3305,7 @@ def Plugins(**kwargs):
     return [
         PluginDescriptor(
             name=PLUGIN_NAME,
-            description="PP Channel Sync - list correction, DVB-T skipped, reports and QR",
+            description="PP Channel Sync - extended list tools, bouquet update, reports",
             where=PluginDescriptor.WHERE_PLUGINMENU,
             icon="plugin.png",
             fnc=main
