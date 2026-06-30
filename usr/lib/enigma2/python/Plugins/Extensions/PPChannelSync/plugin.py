@@ -33,7 +33,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "1.2.1"
+PLUGIN_VERSION = "1.2.0"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -58,11 +58,9 @@ MANAGED_PREFIX = "ppcs_"
 
 SOURCE_STANDARD = 0
 SOURCE_ALTERNATIVE = 1
-SOURCE_GIOPPYGIO = 2
 SOURCE_OPTIONS = [
     ("Standard", "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list."),
     ("Alternatywne", "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę."),
-    ("GioppyGio", "Dodatkowe źródło kontroli z repo OpenVisionE2/GioppyGio-settings. Przydatne jako trzecia baza porównawcza, gdy chcesz sprawdzić listę względem pakietów GioppyGio."),
 ]
 
 STANDARD_PACKAGES = [
@@ -97,41 +95,11 @@ ALTERNATIVE_PACKAGES = [
     ("Multi 19E + 16E + 13E", "ciefp-E2-3satB-19E-16E-13E-"),
 ]
 
-# Dodatkowe źródło GioppyGio/OpenVisionE2.
-# Repo nie publikuje osobnych plików ZIP dla każdego wariantu, dlatego wtyczka
-# pobiera archiwum master.zip i pracuje tylko na wybranym katalogu pakietu.
-GIOPPYGIO_ZIP_URL = "https://github.com/OpenVisionE2/GioppyGio-settings/archive/refs/heads/master.zip"
-GIOPPYGIO_PACKAGES = [
-    ("Mono 13E", "GioppyGio_E2_Mono_13E"),
-    ("Dual 13E + 16E", "GioppyGio_E2_Dual_13E+16E"),
-    ("Dual 13E + 19E", "GioppyGio_E2_Dual_13E+19E"),
-    ("Dual 5W + 13E", "GioppyGio_E2_Dual_5W+13E"),
-    ("Dual 9E + 13E", "GioppyGio_E2_Dual_9E+13E"),
-    ("Trial 13E + 16E + 19E", "GioppyGio_E2_Trial_13E+16E+19E"),
-    ("Trial 13E + 19E + 28E", "GioppyGio_E2_Trial_13E+19E+28E"),
-    ("Trial 13E + 19E + 30W", "GioppyGio_E2_Trial_13E+19E+30W"),
-    ("Trial 5W + 13E + 19E", "GioppyGio_E2_Trial_5W+13E+19E"),
-    ("Trial 9E + 13E + 19E", "GioppyGio_E2_Trial_9E+13E+19E"),
-    ("Quadri 13E + 16E + 19E + 30W", "GioppyGio_E2_Quadri_13E+16E+19E+30W"),
-    ("Quadri 13E + 19E + 23E + 28E", "GioppyGio_E2_Quadri_13E+19E+23E+28E"),
-    ("Quadri 13E + 19E + 9E + 5W", "GioppyGio_E2_Quadri_13E+19E+9E+5W"),
-    ("Quadri 9E + 13E + 16E + 19E", "GioppyGio_E2_Quadri_9E+13E+16E+19E"),
-    ("Motor 75E - 45W", "GioppyGio_E2_Motor_75E-45W"),
-]
-
 # Zgodność z wcześniejszymi funkcjami.
 ONLINE_PACKAGES = STANDARD_PACKAGES
 
 def packages_for_source(source_index):
-    try:
-        source_index = int(source_index or 0)
-    except Exception:
-        source_index = SOURCE_STANDARD
-    if source_index == SOURCE_ALTERNATIVE:
-        return ALTERNATIVE_PACKAGES
-    if source_index == SOURCE_GIOPPYGIO:
-        return GIOPPYGIO_PACKAGES
-    return STANDARD_PACKAGES
+    return ALTERNATIVE_PACKAGES if int(source_index or 0) == SOURCE_ALTERNATIVE else STANDARD_PACKAGES
 
 def clamp_package_index(source_index, package_index):
     packages = packages_for_source(source_index)
@@ -642,14 +610,6 @@ def find_file(root, filename):
     return None
 
 
-def find_dir(root, dirname):
-    for base, dirs, _files in os.walk(root):
-        for name in dirs:
-            if name == dirname:
-                return os.path.join(base, name)
-    return None
-
-
 def find_remote_bouquets(root):
     out = []
     for base, _dirs, files in os.walk(root):
@@ -909,8 +869,6 @@ def extract_archive(archive_path, dest_dir):
 def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     cleanup_workdir()
     source_index = int(source_index or 0)
-    if source_index < 0 or source_index >= len(SOURCE_OPTIONS):
-        source_index = SOURCE_STANDARD
     pkg_index = clamp_package_index(source_index, pkg_index)
     packages = packages_for_source(source_index)
     label, value = packages[pkg_index]
@@ -918,9 +876,6 @@ def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     if source_index == SOURCE_ALTERNATIVE:
         url, resolved_name = resolve_ciefp_url(value)
         resolved_label = "%s / %s" % (label, resolved_name)
-    elif source_index == SOURCE_GIOPPYGIO:
-        url = GIOPPYGIO_ZIP_URL
-        resolved_label = "%s / %s" % (label, value)
     else:
         url = value
         resolved_label = label
@@ -929,17 +884,11 @@ def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     archive_hash = sha256_file(archive_path)
     extract_dir = os.path.join(WORK_DIR, "extracted")
     extract_archive(archive_path, extract_dir)
-    search_root = extract_dir
-    if source_index == SOURCE_GIOPPYGIO:
-        selected_dir = find_dir(extract_dir, value)
-        if not selected_dir:
-            raise Exception("W źródle GioppyGio nie znaleziono katalogu: %s" % value)
-        search_root = selected_dir
-    lamedb = find_file(search_root, "lamedb")
-    bouquets = find_remote_bouquets(search_root)
+    lamedb = find_file(extract_dir, "lamedb")
+    bouquets = find_remote_bouquets(extract_dir)
     if not lamedb:
         raise Exception("W paczce kontrolnej nie znaleziono pliku lamedb.")
-    return {"label": label, "resolved_label": resolved_label, "source_label": source_label, "source_index": source_index, "url": url, "hash": archive_hash, "root": search_root, "lamedb": lamedb, "bouquets": bouquets}
+    return {"label": label, "resolved_label": resolved_label, "source_label": source_label, "source_index": source_index, "url": url, "hash": archive_hash, "root": extract_dir, "lamedb": lamedb, "bouquets": bouquets}
 
 
 def make_backup():
