@@ -26,6 +26,14 @@ except Exception:
         Request = None
         urlopen = None
 
+try:
+    from urllib.parse import quote as url_quote
+except Exception:
+    try:
+        from urllib import quote as url_quote
+    except Exception:
+        url_quote = None
+
 from Plugins.Plugin import PluginDescriptor
 from Screens.Screen import Screen
 from Screens.MessageBox import MessageBox
@@ -33,7 +41,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "1.2.0"
+PLUGIN_VERSION = "1.2.1"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -58,9 +66,11 @@ MANAGED_PREFIX = "ppcs_"
 
 SOURCE_STANDARD = 0
 SOURCE_ALTERNATIVE = 1
+SOURCE_GIOPPYGIO = 2
 SOURCE_OPTIONS = [
     ("Standard", "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list."),
     ("Alternatywne", "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę."),
+    ("GioppyGio", "Trzecie źródło kontroli z OpenVisionE2/GioppyGio-settings. Pobiera tylko wybrany katalog, bez całego repozytorium."),
 ]
 
 STANDARD_PACKAGES = [
@@ -95,11 +105,42 @@ ALTERNATIVE_PACKAGES = [
     ("Multi 19E + 16E + 13E", "ciefp-E2-3satB-19E-16E-13E-"),
 ]
 
+# GioppyGio/OpenVisionE2.
+# Uwaga: nie pobieramy całego master.zip, bo na tunerach Enigma2 może to blokować GUI.
+# Pobierane są tylko pliki z wybranego katalogu: lamedb, bouquets i userbouquet.*.
+GIOPPYGIO_API_BASE = "https://api.github.com/repos/OpenVisionE2/GioppyGio-settings/contents/"
+GIOPPYGIO_RAW_BASE = "https://raw.githubusercontent.com/OpenVisionE2/GioppyGio-settings/master/"
+GIOPPYGIO_PACKAGES = [
+    ("Mono 13E", "GioppyGio_E2_Mono_13E"),
+    ("Dual 13E + 16E", "GioppyGio_E2_Dual_13E+16E"),
+    ("Dual 13E + 19E", "GioppyGio_E2_Dual_13E+19E"),
+    ("Dual 5W + 13E", "GioppyGio_E2_Dual_5W+13E"),
+    ("Dual 9E + 13E", "GioppyGio_E2_Dual_9E+13E"),
+    ("Trial 13E + 16E + 19E", "GioppyGio_E2_Trial_13E+16E+19E"),
+    ("Trial 13E + 19E + 28E", "GioppyGio_E2_Trial_13E+19E+28E"),
+    ("Trial 13E + 19E + 30W", "GioppyGio_E2_Trial_13E+19E+30W"),
+    ("Trial 5W + 13E + 19E", "GioppyGio_E2_Trial_5W+13E+19E"),
+    ("Trial 9E + 13E + 19E", "GioppyGio_E2_Trial_9E+13E+19E"),
+    ("Quadri 13E + 16E + 19E + 30W", "GioppyGio_E2_Quadri_13E+16E+19E+30W"),
+    ("Quadri 13E + 19E + 23E + 28E", "GioppyGio_E2_Quadri_13E+19E+23E+28E"),
+    ("Quadri 13E + 19E + 9E + 5W", "GioppyGio_E2_Quadri_13E+19E+9E+5W"),
+    ("Quadri 9E + 13E + 16E + 19E", "GioppyGio_E2_Quadri_9E+13E+16E+19E"),
+    ("Motor 75E - 45W", "GioppyGio_E2_Motor_75E-45W"),
+]
+
 # Zgodność z wcześniejszymi funkcjami.
 ONLINE_PACKAGES = STANDARD_PACKAGES
 
 def packages_for_source(source_index):
-    return ALTERNATIVE_PACKAGES if int(source_index or 0) == SOURCE_ALTERNATIVE else STANDARD_PACKAGES
+    try:
+        source_index = int(source_index or 0)
+    except Exception:
+        source_index = SOURCE_STANDARD
+    if source_index == SOURCE_ALTERNATIVE:
+        return ALTERNATIVE_PACKAGES
+    if source_index == SOURCE_GIOPPYGIO:
+        return GIOPPYGIO_PACKAGES
+    return STANDARD_PACKAGES
 
 def clamp_package_index(source_index, package_index):
     packages = packages_for_source(source_index)
@@ -183,6 +224,8 @@ _TR_EN = {
     "Alternatywne": "Alternative",
     "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list.": "Primary control source. Recommended as the first choice for most lists.",
     "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę.": "Alternative control source based on Ciefp packages from GitHub. Useful when the standard source does not match your list well.",
+    "GioppyGio": "GioppyGio",
+    "Trzecie źródło kontroli z OpenVisionE2/GioppyGio-settings. Pobiera tylko wybrany katalog, bez całego repozytorium.": "Third control source from OpenVisionE2/GioppyGio-settings. It downloads only the selected folder, not the whole repository.",
     "Raport bez zapisu": "Report only",
     "Tylko sprawdza Twoją listę i zapisuje raport. Nic nie zmienia w tunerze.": "Checks your list and saves a report. Nothing is changed on the receiver.",
     "Bezpieczna korekta techniczna": "Safe technical correction",
@@ -789,14 +832,15 @@ def cleanup_workdir():
     ensure_dir(WORK_DIR)
 
 
-def download_url(url, dest):
+def download_url(url, dest, min_size=1024):
     if Request is None or urlopen is None:
         raise Exception("Brak obsługi urllib w systemie Python.")
     req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION})
     response = urlopen(req, timeout=60)
     data = response.read()
-    if not data or len(data) < 1024:
+    if not data or len(data) < int(min_size or 1):
         raise Exception("Pobrany plik jest pusty albo za mały.")
+    ensure_dir(os.path.dirname(dest))
     with open(dest, "wb") as f:
         f.write(data)
     return dest
@@ -808,6 +852,77 @@ def fetch_json(url):
     req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION, "Accept": "application/vnd.github+json"})
     data = urlopen(req, timeout=30).read()
     return json.loads(data.decode("utf-8", "ignore"))
+
+
+def quote_url_path(path):
+    path = str(path or "")
+    if url_quote is None:
+        return path.replace(" ", "%20").replace("+", "%2B")
+    try:
+        return url_quote(path, safe="/")
+    except Exception:
+        try:
+            return url_quote(path.encode("utf-8"), safe="/")
+        except Exception:
+            return path.replace(" ", "%20").replace("+", "%2B")
+
+
+def sha256_many(paths):
+    h = hashlib.sha256()
+    for path in sorted(paths):
+        try:
+            h.update(os.path.basename(path).encode("utf-8", "ignore"))
+            with open(path, "rb") as f:
+                while True:
+                    data = f.read(65536)
+                    if not data:
+                        break
+                    h.update(data)
+        except Exception:
+            pass
+    return h.hexdigest()
+
+
+def is_gioppygio_needed_file(name):
+    n = (name or "").strip()
+    low = n.lower()
+    if n in ("lamedb", "lamedb5", "bouquets.tv", "bouquets.radio"):
+        return True
+    if low.startswith("userbouquet.") and (low.endswith(".tv") or low.endswith(".radio")):
+        return True
+    return False
+
+
+def download_gioppygio_package(dirname):
+    dirname = str(dirname or "").strip().strip("/")
+    if not dirname or "/" in dirname or ".." in dirname:
+        raise Exception("Nieprawidłowy katalog GioppyGio: %s" % dirname)
+    target_dir = os.path.join(WORK_DIR, "gioppygio", dirname)
+    ensure_dir(target_dir)
+    api_url = GIOPPYGIO_API_BASE + quote_url_path(dirname)
+    items = fetch_json(api_url)
+    if not isinstance(items, list):
+        raise Exception("GioppyGio nie zwrócił listy plików dla: %s" % dirname)
+    downloaded = []
+    for item in items:
+        try:
+            if item.get("type") != "file":
+                continue
+            name = item.get("name", "")
+            if not is_gioppygio_needed_file(name):
+                continue
+            url = item.get("download_url") or (GIOPPYGIO_RAW_BASE + quote_url_path(dirname + "/" + name))
+            dest = os.path.join(target_dir, name)
+            download_url(url, dest, min_size=1)
+            downloaded.append(dest)
+        except Exception:
+            # Jeden problematyczny bukiet nie może zatrzymać całej bazy; lamedb sprawdzamy niżej.
+            continue
+    lamedb = os.path.join(target_dir, "lamedb")
+    if not os.path.isfile(lamedb):
+        raise Exception("W katalogu GioppyGio nie pobrano pliku lamedb: %s" % dirname)
+    bouquets = find_remote_bouquets(target_dir)
+    return target_dir, lamedb, bouquets, sha256_many(downloaded), api_url
 
 
 def _date_key_from_filename(name):
@@ -868,7 +983,12 @@ def extract_archive(archive_path, dest_dir):
 
 def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     cleanup_workdir()
-    source_index = int(source_index or 0)
+    try:
+        source_index = int(source_index or 0)
+    except Exception:
+        source_index = SOURCE_STANDARD
+    if source_index < 0 or source_index >= len(SOURCE_OPTIONS):
+        source_index = SOURCE_STANDARD
     pkg_index = clamp_package_index(source_index, pkg_index)
     packages = packages_for_source(source_index)
     label, value = packages[pkg_index]
@@ -876,6 +996,10 @@ def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     if source_index == SOURCE_ALTERNATIVE:
         url, resolved_name = resolve_ciefp_url(value)
         resolved_label = "%s / %s" % (label, resolved_name)
+    elif source_index == SOURCE_GIOPPYGIO:
+        root, lamedb, bouquets, archive_hash, url = download_gioppygio_package(value)
+        resolved_label = "%s / %s" % (label, value)
+        return {"label": label, "resolved_label": resolved_label, "source_label": source_label, "source_index": source_index, "url": url, "hash": archive_hash, "root": root, "lamedb": lamedb, "bouquets": bouquets}
     else:
         url = value
         resolved_label = label
