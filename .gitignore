@@ -1,3 +1,7 @@
-*.pyc
 __pycache__/
+*.py[cod]
+*.pyo
+*.part
+*.tmp
 .DS_Store
+release/build/

@@ -41,7 +41,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "1.2.1"
+PLUGIN_VERSION = "1.3.0"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -63,6 +63,9 @@ STATE_PATH = "/etc/enigma2/ppchannelsync_state.conf"
 UPDATE_INFO_PATH = "/tmp/ppchannelsync_update_info.txt"
 UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/update.json"
 MANAGED_PREFIX = "ppcs_"
+BACKUP_KEEP = 10
+MAX_DOWNLOAD_BYTES = 96 * 1024 * 1024
+MIN_CONTROL_SERVICES = 5
 
 SOURCE_STANDARD = 0
 SOURCE_ALTERNATIVE = 1
@@ -70,7 +73,7 @@ SOURCE_GIOPPYGIO = 2
 SOURCE_OPTIONS = [
     ("Standard", "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list."),
     ("Alternatywne", "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę."),
-    ("GioppyGio", "Trzecie źródło kontroli z OpenVisionE2/GioppyGio-settings. Pobiera tylko wybrany katalog, bez całego repozytorium."),
+    ("GioppyGio", "Dodatkowe źródło kontroli z OpenVisionE2. Pobiera tylko potrzebne pliki i obsługuje lamedb oraz lamedb5."),
 ]
 
 STANDARD_PACKAGES = [
@@ -91,7 +94,7 @@ STANDARD_PACKAGES = [
 # kodu przy każdej nowej dacie paczki.
 CIEFP_API_URL = "https://api.github.com/repos/ciefp/ciefpsettings-enigma2-zipped/contents/"
 CIEFP_RAW_BASE = "https://raw.githubusercontent.com/ciefp/ciefpsettings-enigma2-zipped/master/"
-CIEFP_FALLBACK_DATE = "27.06.2026"
+CIEFP_FALLBACK_DATE = "01.07.2026"
 ALTERNATIVE_PACKAGES = [
     ("Hot Bird 13E", "ciefp-E2-2satA-19E-13E-"),
     ("Dual Feed 13E + 19.2E", "ciefp-E2-2satA-19E-13E-"),
@@ -105,9 +108,9 @@ ALTERNATIVE_PACKAGES = [
     ("Multi 19E + 16E + 13E", "ciefp-E2-3satB-19E-16E-13E-"),
 ]
 
-# GioppyGio/OpenVisionE2.
-# Uwaga: nie pobieramy całego master.zip, bo na tunerach Enigma2 może to blokować GUI.
-# Pobierane są tylko pliki z wybranego katalogu: lamedb, bouquets i userbouquet.*.
+# Dodatkowe źródło GioppyGio/OpenVisionE2.
+# Pobierane są wyłącznie pliki potrzebne do kontroli wybranego wariantu.
+# Dzięki temu tuner nie pobiera całego repozytorium i nie blokuje GUI dużym ZIP-em.
 GIOPPYGIO_API_BASE = "https://api.github.com/repos/OpenVisionE2/GioppyGio-settings/contents/"
 GIOPPYGIO_RAW_BASE = "https://raw.githubusercontent.com/OpenVisionE2/GioppyGio-settings/master/"
 GIOPPYGIO_PACKAGES = [
@@ -224,8 +227,6 @@ _TR_EN = {
     "Alternatywne": "Alternative",
     "Podstawowe źródło kontroli. Dobre jako pierwszy wybór dla większości list.": "Primary control source. Recommended as the first choice for most lists.",
     "Drugie źródło kontroli oparte o paczki Ciefp z GitHub. Przydatne, gdy standardowe źródło gorzej dopasowuje Twoją listę.": "Alternative control source based on Ciefp packages from GitHub. Useful when the standard source does not match your list well.",
-    "GioppyGio": "GioppyGio",
-    "Trzecie źródło kontroli z OpenVisionE2/GioppyGio-settings. Pobiera tylko wybrany katalog, bez całego repozytorium.": "Third control source from OpenVisionE2/GioppyGio-settings. It downloads only the selected folder, not the whole repository.",
     "Raport bez zapisu": "Report only",
     "Tylko sprawdza Twoją listę i zapisuje raport. Nic nie zmienia w tunerze.": "Checks your list and saves a report. Nothing is changed on the receiver.",
     "Bezpieczna korekta techniczna": "Safe technical correction",
@@ -646,9 +647,62 @@ def managed_bouquet_files():
 
 
 def find_file(root, filename):
+    wanted = str(filename or "").lower()
     for base, _dirs, files in os.walk(root):
         for name in files:
-            if name == filename:
+            if name.lower() == wanted:
+                return os.path.join(base, name)
+    return None
+
+
+def control_db_candidates(root):
+    candidates = []
+    if not root or not os.path.isdir(root):
+        return candidates
+    for base, _dirs, files in os.walk(root):
+        for name in files:
+            if name.lower() in ("lamedb", "lamedb5"):
+                candidates.append(os.path.join(base, name))
+    candidates.sort(key=lambda path: (0 if os.path.basename(path).lower() == "lamedb" else 1, len(path), path.lower()))
+    return candidates
+
+
+def choose_control_database(root):
+    rejected = []
+    for path in control_db_candidates(root):
+        try:
+            db = parse_lamedb(path)
+            service_count = len(db.get("services") or {})
+            transponder_count = len(db.get("transponders") or {})
+            if db.get("sections") and service_count >= MIN_CONTROL_SERVICES and transponder_count > 0:
+                return path, db, rejected
+            rejected.append("%s (services=%d, transponders=%d, format=%s)" % (
+                path, service_count, transponder_count, "OK" if db.get("sections") else "nieznany"
+            ))
+        except Exception as e:
+            rejected.append("%s (%s)" % (path, str(e)))
+    return None, None, rejected
+
+
+def package_inventory(root, limit=80):
+    items = []
+    if root and os.path.isdir(root):
+        for base, _dirs, files in os.walk(root):
+            for name in files:
+                try:
+                    rel = os.path.relpath(os.path.join(base, name), root)
+                except Exception:
+                    rel = os.path.join(base, name)
+                items.append(rel)
+                if len(items) >= limit:
+                    return sorted(items)
+    return sorted(items)
+
+
+def find_dir(root, dirname):
+    for base, dirs, _files in os.walk(root):
+        for name in dirs:
+            if name == dirname:
                 return os.path.join(base, name)
     return None
 
@@ -832,26 +886,71 @@ def cleanup_workdir():
     ensure_dir(WORK_DIR)
 
 
-def download_url(url, dest, min_size=1024):
+def _download_headers(extra=None):
+    headers = {
+        "User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION,
+        "Accept": "*/*",
+        "Cache-Control": "no-cache",
+    }
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _looks_like_error_document(data):
+    head = (data or b"")[:512].lstrip().lower()
+    return head.startswith(b"<html") or head.startswith(b"<!doctype html") or head.startswith(b"{\"message\"")
+
+
+def download_url(url, dest, min_size=1, max_size=MAX_DOWNLOAD_BYTES):
     if Request is None or urlopen is None:
         raise Exception("Brak obsługi urllib w systemie Python.")
-    req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION})
-    response = urlopen(req, timeout=60)
-    data = response.read()
-    if not data or len(data) < int(min_size or 1):
-        raise Exception("Pobrany plik jest pusty albo za mały.")
-    ensure_dir(os.path.dirname(dest))
-    with open(dest, "wb") as f:
-        f.write(data)
-    return dest
+    tmp = dest + ".part"
+    try:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    except Exception:
+        pass
+    req = Request(url, headers=_download_headers())
+    try:
+        response = urlopen(req, timeout=60)
+        total = 0
+        first = b""
+        with open(tmp, "wb") as f:
+            while True:
+                chunk = response.read(65536)
+                if not chunk:
+                    break
+                if not first:
+                    first = chunk[:512]
+                total += len(chunk)
+                if max_size and total > max_size:
+                    raise Exception("Pobrany plik przekracza bezpieczny limit %d MB." % int(max_size / 1024 / 1024))
+                f.write(chunk)
+        if total < int(min_size or 0):
+            raise Exception("Pobrany plik jest pusty albo za mały (%d B)." % total)
+        if _looks_like_error_document(first):
+            raise Exception("Serwer zwrócił stronę błędu zamiast pliku ustawień.")
+        os.rename(tmp, dest)
+        return dest
+    except Exception as e:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise Exception("Błąd pobierania %s: %s" % (url, str(e)))
 
 
 def fetch_json(url):
     if Request is None or urlopen is None:
         raise Exception("Brak obsługi urllib w systemie Python.")
-    req = Request(url, headers={"User-Agent": "PPChannelSync/%s Enigma2" % PLUGIN_VERSION, "Accept": "application/vnd.github+json"})
-    data = urlopen(req, timeout=30).read()
-    return json.loads(data.decode("utf-8", "ignore"))
+    req = Request(url, headers=_download_headers({"Accept": "application/vnd.github+json"}))
+    try:
+        data = urlopen(req, timeout=30).read()
+        return json.loads(data.decode("utf-8", "ignore"))
+    except Exception as e:
+        raise Exception("Nie udało się odczytać API: %s" % str(e))
 
 
 def quote_url_path(path):
@@ -886,7 +985,7 @@ def sha256_many(paths):
 def is_gioppygio_needed_file(name):
     n = (name or "").strip()
     low = n.lower()
-    if n in ("lamedb", "lamedb5", "bouquets.tv", "bouquets.radio"):
+    if low in ("lamedb", "lamedb5", "bouquets.tv", "bouquets.radio"):
         return True
     if low.startswith("userbouquet.") and (low.endswith(".tv") or low.endswith(".radio")):
         return True
@@ -904,25 +1003,30 @@ def download_gioppygio_package(dirname):
     if not isinstance(items, list):
         raise Exception("GioppyGio nie zwrócił listy plików dla: %s" % dirname)
     downloaded = []
+    file_errors = []
     for item in items:
+        if item.get("type") != "file":
+            continue
+        name = item.get("name", "")
+        if not is_gioppygio_needed_file(name):
+            continue
+        url = item.get("download_url") or (GIOPPYGIO_RAW_BASE + quote_url_path(dirname + "/" + name))
+        dest = os.path.join(target_dir, name)
         try:
-            if item.get("type") != "file":
-                continue
-            name = item.get("name", "")
-            if not is_gioppygio_needed_file(name):
-                continue
-            url = item.get("download_url") or (GIOPPYGIO_RAW_BASE + quote_url_path(dirname + "/" + name))
-            dest = os.path.join(target_dir, name)
             download_url(url, dest, min_size=1)
             downloaded.append(dest)
-        except Exception:
-            # Jeden problematyczny bukiet nie może zatrzymać całej bazy; lamedb sprawdzamy niżej.
-            continue
-    lamedb = os.path.join(target_dir, "lamedb")
-    if not os.path.isfile(lamedb):
-        raise Exception("W katalogu GioppyGio nie pobrano pliku lamedb: %s" % dirname)
+        except Exception as e:
+            file_errors.append("%s: %s" % (name, str(e)))
+    lamedb, parsed, rejected = choose_control_database(target_dir)
+    if not lamedb:
+        details = ["Nie znaleziono poprawnego lamedb/lamedb5 w katalogu GioppyGio: %s" % dirname]
+        if rejected:
+            details.append("Odrzucone bazy: " + "; ".join(rejected))
+        if file_errors:
+            details.append("Błędy plików: " + "; ".join(file_errors))
+        raise Exception("\n".join(details))
     bouquets = find_remote_bouquets(target_dir)
-    return target_dir, lamedb, bouquets, sha256_many(downloaded), api_url
+    return target_dir, lamedb, bouquets, sha256_many(downloaded), api_url, parsed
 
 
 def _date_key_from_filename(name):
@@ -963,26 +1067,78 @@ def _safe_target(base_dir, member_name):
 
 def extract_archive(archive_path, dest_dir):
     ensure_dir(dest_dir)
+    zip_error = None
     try:
         with zipfile.ZipFile(archive_path, "r") as z:
             for member in z.infolist():
                 _safe_target(dest_dir, member.filename)
             z.extractall(dest_dir)
             return dest_dir
-    except zipfile.BadZipFile:
-        pass
+    except Exception as e:
+        zip_error = e
+    tar_error = None
     try:
         with tarfile.open(archive_path, "r:*") as tar:
             for member in tar.getmembers():
                 _safe_target(dest_dir, member.name)
             tar.extractall(dest_dir)
             return dest_dir
+    except Exception as e:
+        tar_error = e
+    raise Exception("Nie udało się rozpakować paczki kontrolnej. ZIP: %s; TAR: %s" % (str(zip_error), str(tar_error)))
+
+
+def try_extract_nested_archives(root, max_archives=12):
+    extracted = []
+    candidates = []
+    extensions = (".zip", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".txz", ".tar.bz2")
+    for base, _dirs, files in os.walk(root):
+        for name in files:
+            low = name.lower()
+            if any(low.endswith(ext) for ext in extensions):
+                candidates.append(os.path.join(base, name))
+    for idx, archive in enumerate(candidates[:max_archives]):
+        target = os.path.join(root, "_nested_%02d" % idx)
+        try:
+            extract_archive(archive, target)
+            extracted.append(target)
+        except Exception:
+            shutil.rmtree(target, ignore_errors=True)
+    return extracted
+
+
+def write_package_error(source_label, resolved_label, url, root, reason, rejected=None):
+    lines = [
+        "PP Channel Sync v%s - diagnostyka paczki kontrolnej" % PLUGIN_VERSION,
+        "Data: %s" % time.strftime("%Y-%m-%d %H:%M:%S"),
+        "Źródło: %s" % source_label,
+        "Pakiet: %s" % resolved_label,
+        "URL/API: %s" % url,
+        "Powód: %s" % reason,
+        "",
+        "Pliki znalezione po rozpakowaniu:",
+    ]
+    inventory = package_inventory(root)
+    lines.extend(["- " + item for item in inventory] or ["- brak plików"])
+    if rejected:
+        lines.append("")
+        lines.append("Odrzucone pliki bazy:")
+        lines.extend(["- " + item for item in rejected])
+    try:
+        write_text(ERROR_PATH, "\n".join(lines) + "\n")
     except Exception:
-        raise Exception("Nie udało się rozpakować paczki kontrolnej. To nie jest poprawny ZIP/TAR.")
+        pass
 
 
 def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     cleanup_workdir()
+    # Każda próba otrzymuje świeży raport błędu. Stary plik nie może zasłonić
+    # aktualnej przyczyny problemu z innym źródłem albo pakietem.
+    try:
+        if os.path.isfile(ERROR_PATH):
+            os.remove(ERROR_PATH)
+    except Exception:
+        pass
     try:
         source_index = int(source_index or 0)
     except Exception:
@@ -993,39 +1149,116 @@ def load_online_package(pkg_index, source_index=SOURCE_STANDARD):
     packages = packages_for_source(source_index)
     label, value = packages[pkg_index]
     source_label = SOURCE_OPTIONS[source_index][0]
+
     if source_index == SOURCE_ALTERNATIVE:
         url, resolved_name = resolve_ciefp_url(value)
         resolved_label = "%s / %s" % (label, resolved_name)
     elif source_index == SOURCE_GIOPPYGIO:
-        root, lamedb, bouquets, archive_hash, url = download_gioppygio_package(value)
         resolved_label = "%s / %s" % (label, value)
-        return {"label": label, "resolved_label": resolved_label, "source_label": source_label, "source_index": source_index, "url": url, "hash": archive_hash, "root": root, "lamedb": lamedb, "bouquets": bouquets}
+        try:
+            root, lamedb, bouquets, archive_hash, url, parsed = download_gioppygio_package(value)
+            return {
+                "label": label, "resolved_label": resolved_label, "source_label": source_label,
+                "source_index": source_index, "url": url, "hash": archive_hash, "root": root,
+                "lamedb": lamedb, "lamedb_name": os.path.basename(lamedb), "bouquets": bouquets,
+                "remote_services": len(parsed.get("services") or {}),
+                "remote_transponders": len(parsed.get("transponders") or {}),
+            }
+        except Exception as e:
+            write_package_error(source_label, resolved_label, GIOPPYGIO_API_BASE + quote_url_path(value), os.path.join(WORK_DIR, "gioppygio", value), str(e))
+            raise Exception("Nie udało się przygotować bazy GioppyGio. Lista nie została zmieniona.\n\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH))
     else:
         url = value
         resolved_label = label
-    archive_path = os.path.join(WORK_DIR, "settings.zip")
-    download_url(url, archive_path)
-    archive_hash = sha256_file(archive_path)
+
+    archive_path = os.path.join(WORK_DIR, "settings.package")
     extract_dir = os.path.join(WORK_DIR, "extracted")
-    extract_archive(archive_path, extract_dir)
-    lamedb = find_file(extract_dir, "lamedb")
-    bouquets = find_remote_bouquets(extract_dir)
-    if not lamedb:
-        raise Exception("W paczce kontrolnej nie znaleziono pliku lamedb.")
-    return {"label": label, "resolved_label": resolved_label, "source_label": source_label, "source_index": source_index, "url": url, "hash": archive_hash, "root": extract_dir, "lamedb": lamedb, "bouquets": bouquets}
+    try:
+        download_url(url, archive_path, min_size=512)
+        archive_hash = sha256_file(archive_path)
+        extract_archive(archive_path, extract_dir)
+        search_root = extract_dir
+        lamedb, parsed, rejected = choose_control_database(search_root)
+        if not lamedb:
+            try_extract_nested_archives(search_root)
+            lamedb, parsed, rejected = choose_control_database(search_root)
+        bouquets = find_remote_bouquets(search_root)
+        if not lamedb:
+            reason = "W paczce nie znaleziono poprawnego pliku lamedb ani lamedb5."
+            write_package_error(source_label, resolved_label, url, search_root, reason, rejected)
+            raise Exception(reason)
+        if not parsed or len(parsed.get("services") or {}) < MIN_CONTROL_SERVICES:
+            reason = "Baza kontrolna jest pusta albo uszkodzona."
+            write_package_error(source_label, resolved_label, url, search_root, reason, rejected)
+            raise Exception(reason)
+        return {
+            "label": label, "resolved_label": resolved_label, "source_label": source_label,
+            "source_index": source_index, "url": url, "hash": archive_hash, "root": search_root,
+            "lamedb": lamedb, "lamedb_name": os.path.basename(lamedb), "bouquets": bouquets,
+            "remote_services": len(parsed.get("services") or {}),
+            "remote_transponders": len(parsed.get("transponders") or {}),
+        }
+    except Exception as e:
+        if not os.path.isfile(ERROR_PATH):
+            write_package_error(source_label, resolved_label, url, extract_dir, str(e))
+        raise Exception("Nie udało się odczytać paczki kontrolnej. Lista nie została zmieniona.\n\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH))
+
+
+def _backup_source_files():
+    files = []
+    if not os.path.isdir(E2_PATH):
+        return files
+    for name in os.listdir(E2_PATH):
+        if name in ("lamedb", "lamedb5", "bouquets.tv", "bouquets.radio") or (name.startswith("userbouquet.") and (name.endswith(".tv") or name.endswith(".radio"))):
+            full = os.path.join(E2_PATH, name)
+            if os.path.isfile(full):
+                files.append((name, full))
+    files.sort()
+    return files
+
+
+def prune_backups(keep=BACKUP_KEEP):
+    if not os.path.isdir(BACKUP_DIR):
+        return
+    backups = [os.path.join(BACKUP_DIR, n) for n in os.listdir(BACKUP_DIR) if n.startswith("PPChannelSync_") and n.endswith(".tar.gz")]
+    backups.sort(reverse=True)
+    for old in backups[int(keep or 0):]:
+        try:
+            os.remove(old)
+        except Exception:
+            pass
 
 
 def make_backup():
     ensure_dir(BACKUP_DIR)
+    files = _backup_source_files()
+    if not files:
+        raise Exception("Nie znaleziono plików listy do wykonania kopii bezpieczeństwa.")
     stamp = time.strftime("%Y%m%d_%H%M%S")
     backup_name = os.path.join(BACKUP_DIR, "PPChannelSync_%s.tar.gz" % stamp)
-    with tarfile.open(backup_name, "w:gz") as tar:
-        for name in os.listdir(E2_PATH):
-            if name in ("lamedb", "lamedb5", "bouquets.tv") or (name.startswith("userbouquet.") and name.endswith(".tv")):
-                full = os.path.join(E2_PATH, name)
-                if os.path.isfile(full):
-                    tar.add(full, arcname=name)
-    return backup_name
+    suffix = 1
+    while os.path.exists(backup_name):
+        backup_name = os.path.join(BACKUP_DIR, "PPChannelSync_%s_%02d.tar.gz" % (stamp, suffix))
+        suffix += 1
+    tmp = backup_name + ".tmp"
+    try:
+        with tarfile.open(tmp, "w:gz") as tar:
+            for name, full in files:
+                tar.add(full, arcname=name)
+        with tarfile.open(tmp, "r:gz") as tar:
+            names = tar.getnames()
+            if not names or not any(name in names for name in ("lamedb", "lamedb5")):
+                raise Exception("Kopia nie zawiera pliku lamedb/lamedb5.")
+        os.rename(tmp, backup_name)
+        prune_backups()
+        return backup_name
+    except Exception:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise
 
 
 def latest_backup():
@@ -1040,7 +1273,21 @@ def restore_backup(path):
     if not path or not os.path.isfile(path):
         raise Exception("Brak kopii bezpieczeństwa.")
     with tarfile.open(path, "r:gz") as tar:
-        tar.extractall(E2_PATH)
+        members = []
+        for member in tar.getmembers():
+            name = os.path.basename(member.name)
+            if name != member.name or not (
+                name in ("lamedb", "lamedb5", "bouquets.tv", "bouquets.radio") or
+                (name.startswith("userbouquet.") and (name.endswith(".tv") or name.endswith(".radio")))
+            ):
+                raise Exception("Kopia zawiera niedozwolony plik: %s" % member.name)
+            if not member.isfile():
+                raise Exception("Kopia zawiera niedozwolony typ wpisu: %s" % member.name)
+            _safe_target(E2_PATH, member.name)
+            members.append(member)
+        if not members:
+            raise Exception("Kopia bezpieczeństwa jest pusta.")
+        tar.extractall(E2_PATH, members=members)
     reload_enigma_bouquets()
 
 
@@ -1327,7 +1574,11 @@ def find_remote_bouquet_for_new_channels(local_title, local_entries, remote_item
 
 def build_plan(remote, match_mode=None, add_new=True, remove_mode=REMOVE_REPORT):
     local_db = parse_local_lamedb()
+    if not local_db.get("sections"):
+        raise Exception("Nie można odczytać lokalnego lamedb ani lamedb5. Korekta została zatrzymana.")
     remote_db, strict_unique, variant_unique = build_remote_index(remote)
+    if not remote_db.get("sections") or len(remote_db.get("services") or {}) < MIN_CONTROL_SERVICES:
+        raise Exception("Pobrana baza kontrolna jest pusta, uszkodzona albo ma nieobsługiwany format.")
     remote_services = remote_db["services"]
     remote_core_index = build_remote_core_index(remote_services)
     user_files = local_user_bouquet_files()
@@ -1542,11 +1793,17 @@ def write_report(plan, mode, match_mode=None):
     report.append("PP Channel Sync v%s" % PLUGIN_VERSION)
     report.append("Źródło kontroli: %s" % plan["remote"].get("source_label", "Standard"))
     report.append("Pakiet kontrolny: %s" % plan["remote"].get("resolved_label", plan["remote"]["label"]))
+    report.append("Baza kontrolna: %s; services=%d; transponders=%d; bukiety=%d" % (
+        plan["remote"].get("lamedb_name", os.path.basename(plan["remote"].get("lamedb", "lamedb"))),
+        plan["remote"].get("remote_services", len(plan.get("remote_db", {}).get("services") or {})),
+        plan["remote"].get("remote_transponders", len(plan.get("remote_db", {}).get("transponders") or {})),
+        len(plan["remote"].get("bouquets") or [])
+    ))
     report.append("Tryb: %s" % SYNC_MODES[mode][0])
     report.append("Dopisywanie nowych kanałów: %s" % ("TAK - tylko na końcu mocno dopasowanych bukietów" if plan.get("add_new") else "NIE"))
     report.append("Usuwanie kanałów: %s" % REMOVE_MODES[plan.get("remove_mode", REMOVE_REPORT)][0])
     report.append("")
-    report.append("Zasada działania v1.0.17:")
+    report.append("Bezpieczny model działania v1.3.0:")
     report.append("- układ, kolejność i numeracja obecnych kanałów zostają zachowane,")
     report.append("- wtyczka nie synchronizuje całych bukietów z bazą kontrolną,")
     report.append("- lamedb jest budowany na bazie lokalnego lamedb użytkownika + brakujące wpisy z bazy kontrolnej,")
@@ -1977,8 +2234,8 @@ def write_bouquet_channel_changes(plan):
             if dirty:
                 write_text(fn, "\n".join(lines) + "\n")
                 changed_files += 1
-        except Exception:
-            pass
+        except Exception as e:
+            raise Exception("Nie udało się zapisać bukietu %s: %s" % (fn, str(e)))
     return changed_files, added_channels, ref_changes, removed_channels
 
 def rebuild_lamedb(local_db, remote_db, service_appends=None, transponder_updates=None):
@@ -2020,28 +2277,36 @@ def rebuild_lamedb(local_db, remote_db, service_appends=None, transponder_update
     target = source_path if source_path else os.path.join(E2_PATH, "lamedb")
     write_text(target, "\n".join(lines) + "\n")
 
-    # Dla obrazów, które równolegle posiadają lamedb i lamedb5, synchronizujemy drugi plik,
-    # ale nie tworzymy go na siłę, jeśli go nie było.
-    other = os.path.join(E2_PATH, "lamedb5") if os.path.basename(target) == "lamedb" else os.path.join(E2_PATH, "lamedb")
-    if os.path.exists(other):
-        try:
-            shutil.copy2(target, other)
-        except Exception:
-            pass
+    # Nie kopiujemy zawartości między lamedb /4/ i lamedb5 /5/.
+    # To dwa różne formaty; ślepe skopiowanie jednego do drugiego może uszkodzić
+    # bazę usług na obrazach, które przechowują oba pliki równolegle.
+    # Aktualizowany jest wyłącznie aktywny, poprawnie rozpoznany plik lokalny.
     return True
 
 def apply_plan(plan, mode):
     backup = make_backup()
-
-    lamedb_written = rebuild_lamedb(plan["local_db"], plan["remote_db"], plan["service_appends"], plan["transponder_updates"])
-    changed_files, added_channels, ref_changes, removed_channels = write_bouquet_channel_changes(plan)
-    marker_updates = update_bouquet_markers(plan["files"].keys())
-    reload_ok = reload_enigma_bouquets()
+    rollback_done = False
+    try:
+        lamedb_written = rebuild_lamedb(plan["local_db"], plan["remote_db"], plan["service_appends"], plan["transponder_updates"])
+        changed_files, added_channels, ref_changes, removed_channels = write_bouquet_channel_changes(plan)
+        marker_updates = update_bouquet_markers(plan["files"].keys())
+        reload_ok = reload_enigma_bouquets()
+    except Exception as e:
+        rollback_error = ""
+        try:
+            restore_backup(backup)
+            rollback_done = True
+        except Exception as rexc:
+            rollback_error = " Błąd przywracania: %s" % str(rexc)
+        if rollback_done:
+            raise Exception("Korekta została przerwana i automatycznie cofnięta z kopii. Powód: %s" % str(e))
+        raise Exception("Korekta została przerwana. Nie udało się automatycznie przywrócić kopii.%s Powód: %s" % (rollback_error, str(e)))
 
     result = []
-    result.append("Korekta wykonana.")
+    result.append("Korekta wykonana bezpiecznie.")
     result.append("")
     result.append("Kopia: %s" % backup)
+    result.append("Automatyczne cofnięcie przy błędzie: AKTYWNE")
     result.append("Dogrywanie gotowych bukietów: NIE")
     result.append("Tworzenie nowych bukietów: NIE")
     result.append("Nowe kanały dopisane do istniejących bukietów: %d" % added_channels)
@@ -2058,6 +2323,7 @@ def apply_plan(plan, mode):
     result.append("Raport: %s" % REPORT_PATH)
     result.append("Szczegóły: %s" % DETAIL_REPORT_PATH)
     return "\n".join(result)
+
 
 def reload_enigma_bouquets():
     try:
@@ -3115,7 +3381,7 @@ class PPChannelSyncScreen(Screen):
             err = "%s\n\n%s" % (str(e), traceback.format_exc())
             try: write_text(ERROR_PATH, err)
             except Exception: pass
-            self.popup("Nie mogę bezpiecznie wykonać korekty. Lista nie powinna zostać zmieniona bez kopii.\n\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH), MessageBox.TYPE_ERROR)
+            self.popup("Nie mogę wykonać korekty. W wersji 1.3.0 zmiany są cofane automatycznie z kopii, gdy zapis zostanie przerwany.\n\n%s\n\nSzczegóły: %s" % (str(e), ERROR_PATH), MessageBox.TYPE_ERROR)
 
     def quick_repair(self):
         old_remove = self.remove_mode
@@ -3418,7 +3684,7 @@ class PPChannelSyncScreen(Screen):
             self.popup("Nie udało się zainstalować aktualizacji:\n%s\n\nSzczegóły: %s" % (str(e), UPDATE_INFO_PATH), MessageBox.TYPE_ERROR)
 
     def info(self):
-        text = "PP Channel Sync v%s\n%s\n\nWersja 1.1.13 przywraca sprawdzony rdzeń korekty list i EPG z v1.0.17 oraz zachowuje narzędzia z gałęzi 1.1.x: tryb prosty/zaawansowany, pojedynczy bukiet, pojedynczy kanał, zmiana nazwy bukietu, raporty, kopie, diagnostyka i aktualizacja z GitHub.\n\nNajważniejsze: istniejąca lista ma być korygowana tak, aby kanały i EPG działały jak w stabilnej wersji 1.0.17. Wtyczka nie zmienia ustawień głowicy, sieci, skina ani rozdzielczości." % (PLUGIN_VERSION, AUTHOR)
+        text = "PP Channel Sync v%s\n%s\n\nWersja 1.3.0 naprawia błąd paczek kontrolnych bez pliku lamedb: obsługuje zarówno lamedb, jak i lamedb5, rozpoznaje paczki zagnieżdżone i zapisuje czytelną diagnostykę. Pobieranie GioppyGio obejmuje wyłącznie potrzebne pliki.\n\nPrzed każdą korektą tworzona i sprawdzana jest kopia bezpieczeństwa. Gdy zapis nie powiedzie się, wtyczka automatycznie przywraca kopię. Istniejące kanały, kolejność bukietów, DVB-T/DVB-C, IPTV oraz lokalne wpisy EPG pozostają chronione. Wtyczka nie zmienia ustawień głowicy, sieci, skina ani rozdzielczości." % (PLUGIN_VERSION, AUTHOR)
         self.popup(text)
 
 def main(session, **kwargs):

@@ -1,7 +1,25 @@
 {
-  "version": "1.2.1",
-  "name": "PP Channel Sync 1.2.1",
-  "description": "Dodano GioppyGio jako trzecie źródło kontroli. Poprawka bez pobierania całego master.zip.",
-  "ipk_url": "https://github.com/OliOli2013/PPChannelSync-Plugin/raw/main/packages/enigma2-plugin-extensions-ppchannelsync_1.2.1_all.ipk",
-  "changelog": "Dodano GioppyGio / OpenVisionE2 jako dodatkowe źródło kontroli, bez zmiany logiki korekty z wersji 1.2.0."
+  "name": "PP Channel Sync",
+  "version": "1.3.0",
+  "latest_version": "1.3.0",
+  "date": "2026-07-16",
+  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.3.0_all.ipk",
+  "package_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_1.3.0_all.ipk",
+  "sha256": "6ee15ccb1a529a3ccfbe6339e19af22db3c73848e71e3875d8753352ce8f757f",
+  "size": 42456,
+  "description": "Obsługa lamedb i lamedb5, zagnieżdżonych archiwów, sprawdzanej kopii oraz automatycznego rollbacku.",
+  "notes": [
+    "Naprawiono komunikat o braku pliku lamedb w paczce kontrolnej.",
+    "Dodano obsługę lamedb5 i walidację bazy przed korektą.",
+    "Dodano automatyczne cofnięcie zmian po błędzie zapisu.",
+    "GioppyGio pobiera tylko potrzebne pliki.",
+    "Aktualizator sprawdza sumę SHA256 paczki IPK."
+  ],
+  "changelog": [
+    "Obsługa lamedb oraz lamedb5.",
+    "Obsługa zagnieżdżonych archiwów ZIP/TAR.",
+    "Atomowa i weryfikowana kopia bezpieczeństwa.",
+    "Automatyczny rollback przy błędzie zapisu.",
+    "Pełniejsza diagnostyka /tmp/ppchannelsync_error.txt."
+  ]
 }
