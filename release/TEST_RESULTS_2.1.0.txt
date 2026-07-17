@@ -1,0 +1,16 @@
+PP Channel Sync 2.1.0 - wyniki testów
+
+OK - kompilacja plugin.py w Python 3
+OK - wykrywanie wielu satelitów z bukietów, lamedb i konfiguracji głowic
+OK - osobne planowanie nowych kanałów dla 13.0E i 19.2E
+OK - dopisanie nowych kanałów pod jednym blokiem PP Channel Sync
+OK - brak duplikatów kanałów i markerów po drugim uruchomieniu
+OK - zachowanie kanałów z wcześniejszego bloku wtyczki
+OK - brak duplikatu po ręcznym przeniesieniu kanału nad blok
+OK - aktualizacja daty i podpisu w bouquets.tv
+OK - zapis i ponowny odczyt lamedb /4/ i lamedb5 /5/
+OK - zachowanie typu 19 jako wartości szesnastkowej w lamedb5
+OK - test anulowania selektora satelitów bez GSOD
+OK - kontrola struktury IPK i sumy SHA256
+
+Nie wykonano testu na fizycznym tunerze Enigma2 ani w interpreterze Python 2.7.

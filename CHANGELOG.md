@@ -1,37 +1,28 @@
-# Changelog — PP Channel Sync
+# Changelog
 
-## 1.3.0 — 2026-07-16
+## 2.1.0
 
-### Najważniejsza poprawka
-- Naprawiono błąd „W paczce kontrolnej nie znaleziono pliku lamedb”.
-- Wtyczka obsługuje teraz oba formaty bazy Enigma2: `lamedb` oraz `lamedb5`.
-- Jeżeli paczka zawiera kolejne archiwum ZIP/TAR, wtyczka przeszukuje również paczki zagnieżdżone.
-- Niepoprawny lub pusty plik bazy jest odrzucany przed rozpoczęciem korekty.
+- przywrócono dopisywanie nowych kanałów na końcu pasujących, istniejących bukietów;
+- źródło kontrolne pobiera teraz również bukiety TV, a nie tylko `lamedb`/`lamedb5`;
+- dodano ostrożne dopasowanie bukietu po nazwie i wspólnych kanałach;
+- nowe kanały są filtrowane osobno dla każdej zaznaczonej satelity;
+- dodano jeden kontrolowany blok `nowe kanały - PP Channel Sync` z markerem końcowym;
+- kolejne uruchomienie nie dubluje kanałów ani separatorów;
+- zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki;
+- kanał ręcznie przeniesiony z bloku do właściwej części bukietu nie jest ponownie dopisywany;
+- każdy nowy kanał otrzymuje wcześniej zweryfikowany wpis w lokalnym `lamedb`/`lamedb5`;
+- przywrócono aktualizację daty i podpisu `@ PP Channel Sync` na dole listy bukietów;
+- stary podpis twórcy listy jest usuwany wyłącznie wtedy, gdy jest markerem informacyjnym, a nie prawdziwym wpisem bukietu;
+- raport pokazuje liczbę dopisanych kanałów oraz wynik osobno dla każdej satelity;
+- zachowano kopię bezpieczeństwa i automatyczny rollback.
 
-### Bezpieczeństwo
-- Kopia bezpieczeństwa jest tworzona atomowo i weryfikowana przed zapisem zmian.
-- Kopia obejmuje `lamedb`, `lamedb5`, listy TV, listy radiowe i pliki główne bukietów.
-- W razie błędu zapisu korekta jest automatycznie cofana z utworzonej kopii.
-- Zachowywanych jest 10 najnowszych kopii, aby nie zapełniać pamięci tunera.
-- Zablokowano niebezpieczne ścieżki w rozpakowywanych archiwach.
-- Wprowadzono limit wielkości pobieranych paczek oraz wykrywanie stron błędu zamiast archiwum.
-- Aktualizator wtyczki weryfikuje sumę SHA256 paczki IPK.
-- Nie jest już kopiowana zawartość pomiędzy `lamedb` i `lamedb5`, ponieważ są to różne formaty.
+## 2.0.1
 
-### Źródła baz kontrolnych
-- GioppyGio pobiera wyłącznie potrzebne pliki zamiast całego repozytorium.
-- Dodano walidację plików pobranych przez GitHub API.
-- Źródło Ciefp wybiera najnowszą pasującą paczkę przez GitHub API.
-- Zaktualizowano awaryjną datę paczki Ciefp.
+- naprawiono GSOD po anulowaniu ekranu wyboru satelitów;
+- poprawiono wykrywanie wielu pozycji orbitalnych;
+- przywrócono czytelny interfejs i funkcje diagnostyczne.
 
-### Diagnostyka
-- `/tmp/ppchannelsync_error.txt` zawiera teraz źródło, URL/API, listę znalezionych plików, odrzucone bazy i dokładną przyczynę zatrzymania.
-- Raport podaje użyty format bazy oraz liczbę usług i transponderów w paczce kontrolnej.
-- Błąd zapisu pojedynczego bukietu nie jest już ignorowany.
+## 2.0.0
 
-### Zasady działania pozostają bez zmian
-- brak automatycznego usuwania poprawnych kanałów użytkownika,
-- brak zmiany kolejności istniejących kanałów,
-- ochrona lokalnego EPG i wpisów `lamedb`,
-- ochrona DVB-T, DVB-C, IPTV i strumieni,
-- brak zmian ustawień głowicy, sieci, skina i rozdzielczości.
+- nowy wielosatelitarny silnik synchronizacji;
+- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`.

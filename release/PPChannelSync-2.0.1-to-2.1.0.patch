@@ -1,0 +1,3282 @@
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/CHANGELOG.md /mnt/data/PPChannelSync-Plugin-2.1.0/CHANGELOG.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/CHANGELOG.md	2026-07-17 17:02:12.699784265 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/CHANGELOG.md	2026-07-17 17:38:29.535537141 +0000
+@@ -1,20 +1,28 @@
+ # Changelog
+ 
++## 2.1.0
++
++- przywrócono dopisywanie nowych kanałów na końcu pasujących, istniejących bukietów;
++- źródło kontrolne pobiera teraz również bukiety TV, a nie tylko `lamedb`/`lamedb5`;
++- dodano ostrożne dopasowanie bukietu po nazwie i wspólnych kanałach;
++- nowe kanały są filtrowane osobno dla każdej zaznaczonej satelity;
++- dodano jeden kontrolowany blok `nowe kanały - PP Channel Sync` z markerem końcowym;
++- kolejne uruchomienie nie dubluje kanałów ani separatorów;
++- zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki;
++- kanał ręcznie przeniesiony z bloku do właściwej części bukietu nie jest ponownie dopisywany;
++- każdy nowy kanał otrzymuje wcześniej zweryfikowany wpis w lokalnym `lamedb`/`lamedb5`;
++- przywrócono aktualizację daty i podpisu `@ PP Channel Sync` na dole listy bukietów;
++- stary podpis twórcy listy jest usuwany wyłącznie wtedy, gdy jest markerem informacyjnym, a nie prawdziwym wpisem bukietu;
++- raport pokazuje liczbę dopisanych kanałów oraz wynik osobno dla każdej satelity;
++- zachowano kopię bezpieczeństwa i automatyczny rollback.
++
+ ## 2.0.1
+ 
+ - naprawiono GSOD po anulowaniu ekranu wyboru satelitów;
+-- callback wyboru satelitów przyjmuje teraz również brak wartości zwrotnej;
+-- wykrywanie pozycji orbitalnych łączy bukiety, `lamedb`/`lamedb5` oraz konfigurację głowic w `/etc/enigma2/settings`;
+-- usunięto błąd 2.0.0, przez który po wykryciu jednej pozycji pozostałe satelity były ukrywane;
+-- przywrócono czytelny interfejs z pełnymi opisami kolorowych przycisków i poprawnymi warstwami `zPosition`;
+-- przebudowano ekran wyboru wielu satelitów;
+-- przywrócono bezpieczne funkcje użytkowe: raport techniczny, ręczna kopia, diagnostyka i paczka wsparcia ZIP;
+-- dodano historię podstawowych operacji;
+-- zachowano bezpieczny rdzeń 2.x: brak automatycznego dodawania/usuwania kanałów, kopia i rollback.
++- poprawiono wykrywanie wielu pozycji orbitalnych;
++- przywrócono czytelny interfejs i funkcje diagnostyczne.
+ 
+ ## 2.0.0
+ 
+ - nowy wielosatelitarny silnik synchronizacji;
+-- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`;
+-- poprawa technicznych reference bez zmiany kolejności bukietów;
+-- naprawa śladów pozostawionych przez wersje 1.x.
++- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/MIGRATION_2.0.md /mnt/data/PPChannelSync-Plugin-2.1.0/MIGRATION_2.0.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/MIGRATION_2.0.md	2026-07-17 16:48:10.036067671 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/MIGRATION_2.0.md	2026-07-17 17:38:29.549919253 +0000
+@@ -1,12 +1,9 @@
+-# Migration to PP Channel Sync 2.0
++# Migracja do PP Channel Sync 2.1
+ 
+-1. Install version 2.0.0 and restart Enigma2 GUI.
+-2. Open PP Channel Sync.
+-3. Press the yellow button and select all satellite positions used by the list.
+-4. Run **Report only** first.
+-5. Review `/tmp/ppchannelsync_report.txt`.
+-6. Change the mode to **Safe correction** and run again.
++1. Zainstaluj wersję 2.1.0 i uruchom ponownie GUI Enigma2.
++2. Wybierz wszystkie używane pozycje orbitalne.
++3. Najpierw wykonaj `Raport bez zapisu`.
++4. Sprawdź liczbę nowych kanałów przewidzianych do dopisania.
++5. Uruchom `Bezpieczną korektę`.
+ 
+-If the old version appended broken entries after the marker `nowe kanały - PP Channel Sync`, version 2.0 detects that block. During safe correction it asks for confirmation and removes the recognized old block after making a backup.
+-
+-Version 2.0 never adds new channels and never deletes existing channels automatically.
++Wersja 2.1.0 rozpoznaje stare bloki `nowe kanały - PP Channel Sync`, zachowuje poprawne kanały i przebudowuje je do jednego kontrolowanego bloku z markerem końcowym. Wtyczka nie usuwa automatycznie zwykłych kanałów użytkownika.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/README.md /mnt/data/PPChannelSync-Plugin-2.1.0/README.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/README.md	2026-07-17 17:02:12.708271315 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/README.md	2026-07-17 17:38:29.527181900 +0000
+@@ -1,28 +1,34 @@
+-# PP Channel Sync 2.0.1
++# PP Channel Sync 2.1.0
+ 
+-**PP Channel Sync** jest wtyczką Enigma2 do bezpiecznej korekty technicznych parametrów istniejącej listy kanałów satelitarnych.
++**PP Channel Sync** to wtyczka Enigma2 służąca do bezpiecznej korekty parametrów kanałów satelitarnych oraz dopisywania pewnych nowych kanałów do istniejących bukietów użytkownika.
+ 
+ Autor: **by Paweł Pawełek**  
+ Kontakt: **aio-iptv@wp.pl**
+ 
+-## Najważniejsze zasady
++## Zasady działania
+ 
+ - wybór jednej, dwóch lub większej liczby pozycji orbitalnych;
+-- każda zaznaczona satelita jest analizowana osobno;
+-- satelity są wykrywane z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
+-- korekta obejmuje wyłącznie istniejące wpisy DVB-S/DVB-S2;
+-- zachowywane są nazwy i kolejność bukietów;
+-- wtyczka nie dodaje oraz nie usuwa kanałów automatycznie;
+-- brak dopisywania dat, podpisów i separatorów do listy;
++- osobna analiza każdej zaznaczonej satelity;
++- wykrywanie satelitów z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
++- korekta istniejących wpisów DVB-S/DVB-S2 bez zmiany ich kolejności;
++- dopisywanie nowych kanałów wyłącznie na końcu pewnie dopasowanego, istniejącego bukietu;
++- jeden czytelny blok `nowe kanały - PP Channel Sync` w każdym zmienionym bukiecie;
++- brak automatycznego usuwania kanałów;
++- zachowanie nazw oraz układu bukietów użytkownika;
++- aktualizacja podpisu i daty na dole widoku bukietów;
+ - natywna obsługa `lamedb /4/` i `lamedb5 /5/`;
+-- sprawdzona kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
++- pełna kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
+ - zgodność z Enigma2 Python 2.7 oraz Python 3.
+ 
+-## Poprawki 2.0.1
++## Co zmieniono w 2.1.0
+ 
+-Wersja 2.0.0 mogła wywołać GSOD po anulowaniu ekranu wyboru satelitów. Dodatkowo wykrywanie kończyło się po znalezieniu pierwszej pozycji w bukietach, dlatego na ekranie mogła być widoczna tylko jedna satelita. W 2.0.1 oba problemy zostały usunięte.
++W 2.0.x silnik był zbyt mocno ograniczony i nie wykonywał dwóch funkcji znanych z wcześniejszych wydań. W 2.1.0 przywrócono je w bezpiecznej formie:
+ 
+-Przywrócono również czytelniejszy interfejs i bezpieczne funkcje użytkowe: raport techniczny, ręczną kopię, diagnostykę oraz ZIP do zgłoszenia błędu.
++- nowe kanały są wykrywane na podstawie bukietów z bazy kontrolnej i dopisywane na dół odpowiadającego im bukietu;
++- kanały z wcześniejszego bloku wtyczki są zachowywane i nie są dublowane przy kolejnej synchronizacji;
++- jeżeli użytkownik przeniesie kanał z bloku do zwykłej części bukietu, wtyczka nie dopisze jego kopii;
++- usuwane są stare podpisy twórcy listy zapisane jako markery, a na dole `bouquets.tv` pojawia się aktualna data i `@ PP Channel Sync`;
++- obsługa wielu satelitów obejmuje także wykrywanie nowych kanałów osobno dla każdej pozycji.
+ 
+ ## Instalacja
+ 
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/README_TEST.md /mnt/data/PPChannelSync-Plugin-2.1.0/README_TEST.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/README_TEST.md	2026-07-17 17:02:12.716259798 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/README_TEST.md	2026-07-17 17:38:29.543118315 +0000
+@@ -1,10 +1,12 @@
+-# Test PP Channel Sync 2.0.1
++# Test PP Channel Sync 2.1.0
+ 
+ 1. Zainstaluj IPK ręcznie i wykonaj restart GUI.
+-2. Otwórz wtyczkę i naciśnij żółty przycisk.
+-3. Sprawdź, czy widoczne są wszystkie pozycje skonfigurowane w głowicach oraz obecne w liście.
+-4. Anuluj wybór czerwonym lub EXIT — GUI nie może się zrestartować ani utworzyć crashloga.
+-5. Otwórz wybór ponownie, zaznacz co najmniej dwie satelity i zapisz zielonym.
+-6. Uruchom „Sprawdź listę”. W raporcie musi znajdować się osobny wynik dla każdej zaznaczonej pozycji.
+-7. Dopiero po poprawnym raporcie uruchom tryb „Bezpieczna korekta”.
+-8. W razie problemu utwórz „Przygotuj raport do wysłania” i pobierz `/tmp/ppchannelsync_support.zip`.
++2. Żółtym przyciskiem zaznacz co najmniej dwie używane satelity.
++3. Ustaw `Raport bez zapisu` i uruchom synchronizację.
++4. Sprawdź, czy raport pokazuje osobny wynik oraz liczbę nowych kanałów dla każdej pozycji.
++5. Ustaw `Bezpieczna korekta` i uruchom ponownie.
++6. Otwórz bukiety, które mają odpowiedniki w bazie kontrolnej.
++7. Nowe kanały powinny znajdować się na samym dole pod markerem `nowe kanały - PP Channel Sync`.
++8. Na dole widoku listy bukietów powinny być aktualna data i wpis `@ PP Channel Sync`.
++9. Uruchom korektę drugi raz. Kanały i markery nie mogą się zdublować.
++10. W razie problemu utwórz `Przygotuj raport do wysłania` i pobierz `/tmp/ppchannelsync_support.zip`.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.0-to-2.0.1.patch /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.0-to-2.0.1.patch
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.0-to-2.0.1.patch	2026-07-17 17:03:31.250108235 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.0-to-2.0.1.patch	1970-01-01 00:00:00.000000000 +0000
+@@ -1,970 +0,0 @@
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/CHANGELOG.md PPChannelSync-Plugin-2.0.1/CHANGELOG.md
+---- PPChannelSync-Plugin-2.0.0/CHANGELOG.md	2026-07-17 16:48:10.028255535 +0000
+-+++ PPChannelSync-Plugin-2.0.1/CHANGELOG.md	2026-07-17 17:02:12.699784265 +0000
+-@@ -1,32 +1,20 @@
+- # Changelog
+- 
+--## 2.0.0
+--
+--Ground-up redesign focused only on reliable synchronization of existing DVB-S services.
+-+## 2.0.1
+- 
+--### Removed from the 1.x branch
+-+- naprawiono GSOD po anulowaniu ekranu wyboru satelitów;
+-+- callback wyboru satelitów przyjmuje teraz również brak wartości zwrotnej;
+-+- wykrywanie pozycji orbitalnych łączy bukiety, `lamedb`/`lamedb5` oraz konfigurację głowic w `/etc/enigma2/settings`;
+-+- usunięto błąd 2.0.0, przez który po wykryciu jednej pozycji pozostałe satelity były ukrywane;
+-+- przywrócono czytelny interfejs z pełnymi opisami kolorowych przycisków i poprawnymi warstwami `zPosition`;
+-+- przebudowano ekran wyboru wielu satelitów;
+-+- przywrócono bezpieczne funkcje użytkowe: raport techniczny, ręczna kopia, diagnostyka i paczka wsparcia ZIP;
+-+- dodano historię podstawowych operacji;
+-+- zachowano bezpieczny rdzeń 2.x: brak automatycznego dodawania/usuwania kanałów, kopia i rollback.
+- 
+--- automatic channel addition to existing bouquets;
+--- automatic channel removal;
+--- bouquet renaming and category tools;
+--- automatic schedules and background execution;
+--- duplicate/channel-search/EPG/picon helper tools;
+--- source-comparison screens;
+--- date and author markers written to bouquet files;
+--- HTML discovery and fixed Vhannibal download identifiers.
+--
+--### Added or corrected
+-+## 2.0.0
+- 
+--- genuine multi-selection of orbital positions;
+--- a full processing loop for every selected satellite;
+--- one validated multi-satellite database with automatic GitHub fallback;
+--- strict exact-name matching within the same orbital position;
+--- same-core repair for missing local lamedb records;
+--- correct hexadecimal `service_type` handling in `lamedb5`;
+--- native record generation for both lamedb4 and lamedb5;
+--- no line insertion into user bouquets during normal synchronization;
+--- validation that blocks raw lamedb records from being written as bouquet text;
+--- migration cleanup for exact leftovers created by 1.x;
+--- transactional backup, verification and rollback;
+--- per-satellite statistics in the report;
+--- simplified PL/EN interface.
+-+- nowy wielosatelitarny silnik synchronizacji;
+-+- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`;
+-+- poprawa technicznych reference bez zmiany kolejności bukietów;
+-+- naprawa śladów pozostawionych przez wersje 1.x.
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/README.md PPChannelSync-Plugin-2.0.1/README.md
+---- PPChannelSync-Plugin-2.0.0/README.md	2026-07-17 16:48:10.019976250 +0000
+-+++ PPChannelSync-Plugin-2.0.1/README.md	2026-07-17 17:02:12.708271315 +0000
+-@@ -1,54 +1,42 @@
+--# PP Channel Sync 2.0.0
+-+# PP Channel Sync 2.0.1
+- 
+--**PP Channel Sync** is an Enigma2 plugin for safely correcting technical service references in an existing satellite channel list.
+-+**PP Channel Sync** jest wtyczką Enigma2 do bezpiecznej korekty technicznych parametrów istniejącej listy kanałów satelitarnych.
+- 
+--Author: **by Paweł Pawełek**  
+--Contact: **aio-iptv@wp.pl**
+-+Autor: **by Paweł Pawełek**  
+-+Kontakt: **aio-iptv@wp.pl**
+- 
+--## Why version 2.0 was rebuilt
+-+## Najważniejsze zasady
+- 
+--The 1.x branch accumulated too many partially related tools. It also mixed three risky operations: correcting existing services, adding new channels and modifying bouquet markers. Version 2.0 replaces that model with one small and verifiable synchronization engine.
+-+- wybór jednej, dwóch lub większej liczby pozycji orbitalnych;
+-+- każda zaznaczona satelita jest analizowana osobno;
+-+- satelity są wykrywane z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
+-+- korekta obejmuje wyłącznie istniejące wpisy DVB-S/DVB-S2;
+-+- zachowywane są nazwy i kolejność bukietów;
+-+- wtyczka nie dodaje oraz nie usuwa kanałów automatycznie;
+-+- brak dopisywania dat, podpisów i separatorów do listy;
+-+- natywna obsługa `lamedb /4/` i `lamedb5 /5/`;
+-+- sprawdzona kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
+-+- zgodność z Enigma2 Python 2.7 oraz Python 3.
+- 
+--## Core behavior
+-+## Poprawki 2.0.1
+- 
+--- detects satellite positions used by the receiver;
+--- allows selecting one, two or more satellite positions;
+--- processes every selected position independently;
+--- downloads one validated multi-satellite reference database;
+--- corrects only existing DVB-S/DVB-S2 entries;
+--- preserves channel order, bouquet names and descriptions;
+--- does not add channels automatically;
+--- does not remove channels automatically;
+--- does not append dates, credits or separators to bouquets;
+--- supports native `lamedb /4/` and `lamedb5 /5/` formats;
+--- creates a verified backup and automatically restores it after a write failure;
+--- supports Enigma2 Python 2.7 and Python 3.
+-+Wersja 2.0.0 mogła wywołać GSOD po anulowaniu ekranu wyboru satelitów. Dodatkowo wykrywanie kończyło się po znalezieniu pierwszej pozycji w bukietach, dlatego na ekranie mogła być widoczna tylko jedna satelita. W 2.0.1 oba problemy zostały usunięte.
+- 
+--## Important lamedb5 correction
+-+Przywrócono również czytelniejszy interfejs i bezpieczne funkcje użytkowe: raport techniczny, ręczną kopię, diagnostykę oraz ZIP do zgłoszenia błędu.
+- 
+--In `lamedb5`, `service_type` is treated as a hexadecimal value. It is no longer converted as a decimal number. This prevents invalid references and entries displayed as raw technical strings.
+--
+--## Migration from 1.x
+--
+--Version 2.0 can remove only recognized leftovers created by old PP Channel Sync versions:
+--
+--- the appended `nowe kanały - PP Channel Sync` block;
+--- the old `PP Channel Sync - Nowe kanały` bouquet;
+--- informational PP Channel Sync markers in `bouquets.tv`.
+--
+--A backup is always created first.
+--
+--## Installation
+-+## Instalacja
+- 
+- ```sh
+- wget -q -O - https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/installer.sh | /bin/sh
+- ```
+- 
+--Restart Enigma2 GUI after installation.
+-+Po instalacji wykonaj restart GUI Enigma2.
+- 
+--## Files and reports
+-+## Raporty
+- 
+--- backup directory: `/etc/enigma2/ppchannelsync_backups/`
+--- summary report: `/tmp/ppchannelsync_report.txt`
+--- detailed report: `/tmp/ppchannelsync_details.txt`
+--- error report: `/tmp/ppchannelsync_error.txt`
+-+- raport główny: `/tmp/ppchannelsync_report.txt`
+-+- raport techniczny: `/tmp/ppchannelsync_details.txt`
+-+- raport błędu: `/tmp/ppchannelsync_error.txt`
+-+- diagnostyka: `/tmp/ppchannelsync_diagnostics.txt`
+-+- paczka wsparcia: `/tmp/ppchannelsync_support.zip`
+-+- kopie: `/etc/enigma2/ppchannelsync_backups/`
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/README_TEST.md PPChannelSync-Plugin-2.0.1/README_TEST.md
+---- PPChannelSync-Plugin-2.0.0/README_TEST.md	2026-07-17 16:48:10.051318391 +0000
+-+++ PPChannelSync-Plugin-2.0.1/README_TEST.md	2026-07-17 17:02:12.716259798 +0000
+-@@ -1,15 +1,10 @@
+--# Test procedure
+-+# Test PP Channel Sync 2.0.1
+- 
+--1. Install the IPK on a test receiver.
+--2. Restart GUI.
+--3. Open PP Channel Sync.
+--4. Select two or more detected satellites with the yellow button.
+--5. Run `Report only`.
+--6. Confirm that the report contains a separate line for every selected satellite.
+--7. Run `Safe correction`.
+--8. Verify that bouquet order, names and descriptions are unchanged.
+--9. Verify that no `PP Channel Sync` marker or `nowe kanały` block is appended.
+--10. Verify channels from every selected satellite.
+--11. Test `Restore last backup`.
+--
+--For migration testing, use a backup containing an old `nowe kanały - PP Channel Sync` block. Confirm that only the recognized block is removed.
+-+1. Zainstaluj IPK ręcznie i wykonaj restart GUI.
+-+2. Otwórz wtyczkę i naciśnij żółty przycisk.
+-+3. Sprawdź, czy widoczne są wszystkie pozycje skonfigurowane w głowicach oraz obecne w liście.
+-+4. Anuluj wybór czerwonym lub EXIT — GUI nie może się zrestartować ani utworzyć crashloga.
+-+5. Otwórz wybór ponownie, zaznacz co najmniej dwie satelity i zapisz zielonym.
+-+6. Uruchom „Sprawdź listę”. W raporcie musi znajdować się osobny wynik dla każdej zaznaczonej pozycji.
+-+7. Dopiero po poprawnym raporcie uruchom tryb „Bezpieczna korekta”.
+-+8. W razie problemu utwórz „Przygotuj raport do wysłania” i pobierz `/tmp/ppchannelsync_support.zip`.
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/tests/test_core.py PPChannelSync-Plugin-2.0.1/tests/test_core.py
+---- PPChannelSync-Plugin-2.0.0/tests/test_core.py	2026-07-17 16:47:13.164865891 +0000
+-+++ PPChannelSync-Plugin-2.0.1/tests/test_core.py	2026-07-17 17:01:02.795887349 +0000
+-@@ -81,7 +81,7 @@
+- spec = importlib.util.spec_from_file_location('ppcs2', PLUGIN)
+- p = importlib.util.module_from_spec(spec)
+- spec.loader.exec_module(p)
+--assert p.PLUGIN_VERSION == '2.0.0'
+-+assert p.PLUGIN_VERSION == '2.0.1'
+- root = tempfile.mkdtemp(prefix='ppcs2_test_')
+- try:
+-     e2 = os.path.join(root,'e2'); os.makedirs(e2)
+-@@ -101,6 +101,14 @@
+-     assert ('19','101','1001','1','820000') in remote_db['services']
+- 
+-     p.E2_PATH=e2; p.BACKUP_DIR=os.path.join(root,'backups'); p.REPORT_PATH=os.path.join(root,'report.txt'); p.DETAIL_REPORT_PATH=os.path.join(root,'details.txt')
+-+
+-+    # Satellite detection must merge bouquets, lamedb and tuner configuration.
+-+    write(os.path.join(e2,'settings'), 'config.Nims.0.configMode=simple\nconfig.Nims.0.diseqcA=130\nconfig.Nims.0.diseqcB=192\nconfig.Nims.1.configMode=advanced\nconfig.Nims.1.advanced.sat.235.lnb=1\n')
+-+    positions=p.detect_positions()
+-+    assert 130 in positions and 192 in positions and 235 in positions, positions
+-+
+-+    # The callback must accept cancellation without a returned value.
+-+    assert p.PPChannelSyncScreen.satellites_selected.__defaults__ == (None,)
+-     remote={'label':'fixture','db':remote_db,'positions':set([130,192])}
+-     plan=p.build_plan([130,192],remote)
+-     assert plan['checked']==2, plan
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/tests/test_ui_callbacks.py PPChannelSync-Plugin-2.0.1/tests/test_ui_callbacks.py
+---- PPChannelSync-Plugin-2.0.0/tests/test_ui_callbacks.py	1970-01-01 00:00:00.000000000 +0000
+-+++ PPChannelSync-Plugin-2.0.1/tests/test_ui_callbacks.py	2026-07-17 17:03:11.874778565 +0000
+-@@ -0,0 +1,106 @@
+-+# -*- coding: utf-8 -*-
+-+from __future__ import print_function
+-+import os
+-+import sys
+-+import types
+-+import importlib.util
+-+
+-+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+-+PLUGIN = os.path.join(ROOT, 'usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py')
+-+
+-+modules = {}
+-+for name in ['Plugins','Plugins.Plugin','Screens','Screens.Screen','Screens.MessageBox','Components','Components.ActionMap','Components.Label','Components.MenuList']:
+-+    modules[name] = types.ModuleType(name)
+-+
+-+class PD(object):
+-+    WHERE_PLUGINMENU = 1
+-+    def __init__(self,*a,**k): pass
+-+
+-+class Screen(dict):
+-+    def __init__(self, session=None, *a, **k):
+-+        dict.__init__(self)
+-+        self.session = session
+-+        self.closed_with = None
+-+    def close(self, *args):
+-+        self.closed_with = args
+-+    def setTitle(self, *args):
+-+        pass
+-+
+-+class MB(object):
+-+    TYPE_INFO=0; TYPE_ERROR=1; TYPE_YESNO=2
+-+
+-+class DummyL(object):
+-+    def setFont(self,*a): pass
+-+    def setItemHeight(self,*a): pass
+-+
+-+class Label(object):
+-+    def __init__(self, text=''):
+-+        self.text=text
+-+    def setText(self,text):
+-+        self.text=text
+-+
+-+class MenuList(object):
+-+    def __init__(self, values):
+-+        self.list=list(values)
+-+        self.index=0
+-+        self.l=DummyL()
+-+        self.onSelectionChanged=[]
+-+    def setList(self, values):
+-+        self.list=list(values)
+-+    def getCurrentIndex(self):
+-+        return self.index
+-+    def moveToIndex(self,index):
+-+        self.index=index
+-+    def up(self):
+-+        self.index=max(0,self.index-1)
+-+    def down(self):
+-+        self.index=min(max(0,len(self.list)-1),self.index+1)
+-+
+-+class ActionMap(object):
+-+    def __init__(self,*a,**k): pass
+-+
+-+modules['Plugins.Plugin'].PluginDescriptor=PD
+-+modules['Screens.Screen'].Screen=Screen
+-+modules['Screens.MessageBox'].MessageBox=MB
+-+modules['Components.ActionMap'].ActionMap=ActionMap
+-+modules['Components.Label'].Label=Label
+-+modules['Components.MenuList'].MenuList=MenuList
+-+sys.modules.update(modules)
+-+
+-+spec=importlib.util.spec_from_file_location('ppcs201_ui',PLUGIN)
+-+p=importlib.util.module_from_spec(spec)
+-+spec.loader.exec_module(p)
+-+
+-+class Session(object):
+-+    def open(self,*a,**k): pass
+-+    def openWithCallback(self,*a,**k): pass
+-+
+-+selector=p.SatelliteSelectScreen(Session(),[130,192],[130])
+-+selector.cancel()
+-+assert selector.closed_with == (None,), selector.closed_with
+-+selector=p.SatelliteSelectScreen(Session(),[130,192],[130])
+-+selector.toggle()
+-+assert 130 not in selector.selected
+-+selector.toggle()
+-+assert 130 in selector.selected
+-+selector.save()
+-+assert selector.closed_with == ([130],), selector.closed_with
+-+
+-+class FakeMain(object):
+-+    def __init__(self):
+-+        self.positions=[130]
+-+        self.refreshed=False
+-+    def refresh(self): self.refreshed=True
+-+
+-+fake=FakeMain()
+-+p.PPChannelSyncScreen.satellites_selected(fake)
+-+assert fake.positions == [130] and not fake.refreshed
+-+p.PPChannelSyncScreen.satellites_selected(fake,[130,192])
+-+assert fake.positions == [130,192] and fake.refreshed
+-+
+-+for name in ('key_red','key_green','key_yellow','key_blue'):
+-+    assert 'name="%s"' % name in p.PPChannelSyncScreen.skin
+-+    segment=p.PPChannelSyncScreen.skin.split('name="%s"' % name,1)[1].split('/>',1)[0]
+-+    assert 'zPosition="5"' in segment, (name,segment)
+-+
+-+print('UI CALLBACK TESTS PASSED')
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/update.json PPChannelSync-Plugin-2.0.1/update.json
+---- PPChannelSync-Plugin-2.0.0/update.json	2026-07-17 16:49:04.278846701 +0000
+-+++ PPChannelSync-Plugin-2.0.1/update.json	2026-07-17 17:02:31.986673031 +0000
+-@@ -1,13 +1,13 @@
+- {
+--  "version": "2.0.0",
+--  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.0.0_all.ipk",
+--  "sha256": "e4094276917f8c99f4790785a02f63243e25b6446def858c73eb67ca6fc6581e",
+-+  "version": "2.0.1",
+-+  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.0.1_all.ipk",
+-+  "sha256": "9b2d4d1bf8f92204e390002686764737b4e75d0f30fee56428aa8b55a69b9e97",
+-   "notes": [
+--    "Gruntowna przebudowa silnika synchronizacji.",
+--    "Prawdziwy wybór wielu satelitów i osobne przetwarzanie każdej pozycji.",
+--    "Usunięto automatyczne dodawanie i usuwanie kanałów oraz markery w bukietach.",
+--    "Poprawiono natywną obsługę service_type w lamedb5.",
+--    "Dodano naprawę brakujących rekordów lamedb i migrację śladów wersji 1.x.",
+--    "Zachowano kopię bezpieczeństwa, weryfikację zapisu i automatyczny rollback."
+-+    "Naprawiono GSOD po anulowaniu wyboru satelitów.",
+-+    "Wykrywanie satelitów łączy bukiety, lamedb/lamedb5 i konfigurację głowic.",
+-+    "Usunięto błąd pokazywania tylko pierwszej pozycji orbitalnej.",
+-+    "Przywrócono czytelny interfejs i widoczne opisy kolorowych przycisków.",
+-+    "Dodano raport techniczny, ręczną kopię, diagnostykę i paczkę wsparcia ZIP.",
+-+    "Zachowano bezpieczny silnik bez automatycznego dodawania i usuwania kanałów."
+-   ]
+- }
+-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
+---- PPChannelSync-Plugin-2.0.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 16:46:43.287352107 +0000
+-+++ PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 17:00:39.464284600 +0000
+-@@ -34,7 +34,7 @@
+- from Components.Label import Label
+- from Components.MenuList import MenuList
+- 
+--PLUGIN_VERSION = "2.0.0"
+-+PLUGIN_VERSION = "2.0.1"
+- PLUGIN_NAME = "PP Channel Sync"
+- AUTHOR = "by Paweł Pawełek"
+- CONTACT = "aio-iptv@wp.pl"
+-@@ -48,6 +48,9 @@
+- DETAIL_REPORT_PATH = "/tmp/ppchannelsync_details.txt"
+- ERROR_PATH = "/tmp/ppchannelsync_error.txt"
+- UPDATE_INFO_PATH = "/tmp/ppchannelsync_update_info.txt"
+-+DIAGNOSTIC_PATH = "/tmp/ppchannelsync_diagnostics.txt"
+-+SUPPORT_ZIP_PATH = "/tmp/ppchannelsync_support.zip"
+-+HISTORY_PATH = "/etc/enigma2/ppchannelsync2_history.log"
+- UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/update.json"
+- BACKUP_KEEP = 10
+- MAX_DOWNLOAD_BYTES = 128 * 1024 * 1024
+-@@ -96,6 +99,13 @@
+-     "Anuluj": "Cancel",
+-     "Wybór satelitów": "Satellite selection",
+-     "Brak wykrytych satelitów w lokalnej liście.": "No satellites were detected in the local list.",
+-+    "Sprawdź listę": "Check channel list",
+-+    "Pokaż raport techniczny": "Show technical report",
+-+    "Utwórz kopię bezpieczeństwa": "Create backup",
+-+    "Diagnostyka systemu": "System diagnostics",
+-+    "Przygotuj raport do wysłania": "Create support report",
+-+    "Wesprzyj": "Support",
+-+    "Pomóż rozwijać\nlokalne projekty": "Help develop\nlocal projects",
+-     "Nie wybrano żadnej satelity.": "No satellite was selected.",
+-     "Wybierz pozycje orbitalne, które mają zostać sprawdzone. OK zaznacza lub odznacza pozycję.": "Select orbital positions to check. OK toggles a position.",
+-     "Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.": "The plugin updates only existing DVB-S entries in your bouquets. It does not add channels, remove channels, rename bouquets or add markers.",
+-@@ -619,27 +629,82 @@
+-     return lines, entries
+- 
+- 
+-+def configured_positions_from_settings(path=None):
+-+    """Read orbital positions configured on tuner inputs.
+-+
+-+    Enigma2 images use several key layouts (simple DiSEqC and advanced mode),
+-+    so values are collected only from keys which are known to contain a
+-+    satellite orbital position. This avoids showing frequencies and LNB data.
+-+    """
+-+    path = path or os.path.join(E2_PATH, "settings")
+-+    found = set()
+-+    if not os.path.isfile(path):
+-+        return []
+-+    try:
+-+        lines = read_text(path).splitlines()
+-+    except Exception:
+-+        return []
+-+    for line in lines:
+-+        if not line.startswith("config.Nims.") or "=" not in line:
+-+            continue
+-+        key, value = line.split("=", 1)
+-+        low = key.lower()
+-+        # Advanced tuner configuration stores the position in the key.
+-+        for match in re.findall(r"\.advanced\.sat\.(\d+)(?:\.|$)", low):
+-+            try:
+-+                pos = int(match)
+-+                if 0 < pos <= 3600:
+-+                    found.add(pos)
+-+            except Exception:
+-+                pass
+-+        # Simple DiSEqC and rotor images store it in the value.
+-+        relevant = (
+-+            re.search(r"\.diseqc[a-d]$", low) or
+-+            low.endswith(".satpos") or
+-+            low.endswith(".lastrotorposition") or
+-+            low.endswith(".lastsatrotorposition") or
+-+            low.endswith(".advanced.sats") or
+-+            low.endswith(".satellites")
+-+        )
+-+        if not relevant:
+-+            continue
+-+        for token in re.findall(r"\d+", value):
+-+            try:
+-+                pos = int(token)
+-+                if 0 < pos <= 3600:
+-+                    found.add(pos)
+-+            except Exception:
+-+                pass
+-+    return sorted(found)
+-+
+-+
+- def detect_positions():
+-+    """Return every useful orbital position, not only the first bouquet hit.
+-+
+-+    Sources are merged: services used by bouquets, all valid local lamedb
+-+    records and tuner input configuration. The old 2.0.0 implementation
+-+    returned early as soon as one bouquet position was found, which hid the
+-+    remaining configured satellites.
+-+    """
+-     databases = valid_local_databases()
+--    if not databases:
+--        return []
+-     used = set()
+--    for path in bouquet_files():
+--        try:
+--            _lines, entries = parse_bouquet(path, databases)
+--            for entry in entries:
+--                if entry.get("orbit"):
+--                    used.add(entry["orbit"])
+--        except Exception:
+--            pass
+--    if used:
+--        return sorted(used)
+--    all_positions = set()
+--    for db in databases:
+--        for pos in db.get("service_orbits", {}).values():
+--            if pos:
+--                all_positions.add(pos)
+--    return sorted(all_positions)
+-+    local = set()
+-+    if databases:
+-+        for path in bouquet_files():
+-+            try:
+-+                _lines, entries = parse_bouquet(path, databases)
+-+                for entry in entries:
+-+                    pos = entry.get("orbit")
+-+                    if pos:
+-+                        used.add(pos)
+-+            except Exception:
+-+                pass
+-+        for db in databases:
+-+            for pos in db.get("service_orbits", {}).values():
+-+                if pos:
+-+                    local.add(pos)
+-+    configured = set(configured_positions_from_settings())
+-+    return sorted(used.union(local).union(configured))
+- 
+- 
+- def download_bytes(url, headers=None, max_bytes=MAX_DOWNLOAD_BYTES):
+-@@ -1366,18 +1431,94 @@
+-     raise Exception("Instalacja IPK nie powiodła się.\n" + "\n".join(errors))
+- 
+- 
+-+def append_history(text):
+-+    try:
+-+        ensure_dir(os.path.dirname(HISTORY_PATH))
+-+        line = "%s | v%s | %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), PLUGIN_VERSION, str(text).replace("\n", " ")[:500])
+-+        with open(HISTORY_PATH, "ab") as handle:
+-+            handle.write(line.encode("utf-8", "ignore"))
+-+    except Exception:
+-+        pass
+-+
+-+
+-+def create_diagnostics(selected_positions=None):
+-+    lines = [
+-+        "PP Channel Sync v%s - diagnostyka" % PLUGIN_VERSION,
+-+        "Data: %s" % time.strftime("%Y-%m-%d %H:%M:%S"),
+-+        "Autor: %s" % AUTHOR,
+-+        "",
+-+    ]
+-+    try:
+-+        import sys
+-+        lines.append("Python: %s" % sys.version.replace("\n", " "))
+-+    except Exception:
+-+        pass
+-+    configured = configured_positions_from_settings()
+-+    detected = detect_positions()
+-+    lines.append("Satelity skonfigurowane w głowicach: %s" % (", ".join([orbital_label(x) for x in configured]) or "brak/nie wykryto"))
+-+    lines.append("Satelity wykryte w liście i lamedb: %s" % (", ".join([orbital_label(x) for x in detected]) or "brak"))
+-+    lines.append("Satelity zaznaczone we wtyczce: %s" % (", ".join([orbital_label(x) for x in sorted(selected_positions or [])]) or "brak"))
+-+    lines.append("")
+-+    databases = valid_local_databases()
+-+    if not databases:
+-+        lines.append("Baza kanałów: BRAK poprawnego lamedb/lamedb5")
+-+    for db in databases:
+-+        lines.append("Baza: %s | format /%s/ | usługi: %d | transpondery: %d" % (
+-+            db.get("path"), db.get("format"), len(db.get("services") or {}), len(db.get("transponders") or {})
+-+        ))
+-+    bfiles = bouquet_files()
+-+    lines.append("Bukiety TV: %d" % len(bfiles))
+-+    sat_entries = 0
+-+    per_position = {}
+-+    for path in bfiles:
+-+        try:
+-+            _raw, entries = parse_bouquet(path, databases)
+-+            sat_entries += len(entries)
+-+            for entry in entries:
+-+                pos = entry.get("orbit")
+-+                if pos:
+-+                    per_position[pos] = per_position.get(pos, 0) + 1
+-+        except Exception as exc:
+-+            lines.append("Błąd odczytu %s: %s" % (os.path.basename(path), str(exc)))
+-+    lines.append("Pozycje DVB-S w bukietach: %d" % sat_entries)
+-+    for pos in sorted(per_position):
+-+        lines.append("- %s: %d" % (orbital_label(pos), per_position[pos]))
+-+    lines.append("")
+-+    lines.append("Ostatni raport: %s" % ("jest" if os.path.isfile(REPORT_PATH) else "brak"))
+-+    lines.append("Ostatni błąd: %s" % ("jest" if os.path.isfile(ERROR_PATH) else "brak"))
+-+    atomic_write(DIAGNOSTIC_PATH, "\n".join(lines) + "\n")
+-+    return "\n".join(lines)
+-+
+-+
+-+def create_support_zip(selected_positions=None):
+-+    create_diagnostics(selected_positions)
+-+    try:
+-+        if os.path.isfile(SUPPORT_ZIP_PATH):
+-+            os.unlink(SUPPORT_ZIP_PATH)
+-+    except Exception:
+-+        pass
+-+    with zipfile.ZipFile(SUPPORT_ZIP_PATH, "w", zipfile.ZIP_DEFLATED) as archive:
+-+        for path in (DIAGNOSTIC_PATH, REPORT_PATH, DETAIL_REPORT_PATH, ERROR_PATH, UPDATE_INFO_PATH, HISTORY_PATH):
+-+            if os.path.isfile(path):
+-+                archive.write(path, os.path.basename(path))
+-+    return SUPPORT_ZIP_PATH
+-+
+-+
+- class SatelliteSelectScreen(Screen):
+-     skin = """
+--    <screen name="SatelliteSelectScreen" position="center,center" size="1000,620" title="PP Channel Sync - satelity">
+--        <eLabel position="0,0" size="1000,620" backgroundColor="#0b1520" zPosition="-3" />
+--        <eLabel position="14,14" size="972,70" backgroundColor="#16456b" zPosition="-2" />
+--        <widget name="title" position="35,27" size="700,42" font="Regular;34" foregroundColor="#ffffff" backgroundColor="#16456b" transparent="1" />
+--        <widget name="help" position="35,98" size="930,60" font="Regular;23" foregroundColor="#dddddd" backgroundColor="#0b1520" transparent="1" />
+--        <widget name="menu" position="35,170" size="930,340" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" />
+--        <eLabel position="35,540" size="285,48" backgroundColor="#421010" />
+--        <eLabel position="350,540" size="285,48" backgroundColor="#0d3818" />
+--        <widget name="key_red" position="55,550" size="250,28" font="Regular;23" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" />
+--        <widget name="key_green" position="370,550" size="250,28" font="Regular;23" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" />
+-+    <screen name="SatelliteSelectScreen" position="center,center" size="1050,650" title="PP Channel Sync - satelity">
+-+        <eLabel position="0,0" size="1050,650" backgroundColor="#08111b" zPosition="-5" />
+-+        <eLabel position="10,10" size="1030,630" backgroundColor="#101c29" zPosition="-4" />
+-+        <eLabel position="18,18" size="1014,70" backgroundColor="#123a5a" zPosition="-3" />
+-+        <eLabel position="38,170" size="974,340" backgroundColor="#071016" zPosition="-3" />
+-+        <widget name="title" position="42,31" size="760,40" font="Regular;34" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
+-+        <widget name="help" position="42,102" size="960,56" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#101c29" transparent="1" zPosition="5" />
+-+        <widget name="menu" position="52,180" size="944,315" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" zPosition="5" />
+-+        <widget name="hint" position="42,522" size="950,35" font="Regular;21" foregroundColor="#b8b8b8" backgroundColor="#101c29" transparent="1" zPosition="5" />
+-+        <eLabel position="42,580" size="290,46" backgroundColor="#421010" zPosition="-1" />
+-+        <eLabel position="360,580" size="290,46" backgroundColor="#0d3818" zPosition="-1" />
+-+        <widget name="key_red" position="60,590" size="255,28" font="Regular;22" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" zPosition="5" />
+-+        <widget name="key_green" position="378,590" size="255,28" font="Regular;22" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" zPosition="5" />
+-     </screen>
+-     """
+- 
+-@@ -1387,6 +1528,7 @@
+-         self.selected = set(selected or [])
+-         self["title"] = Label(_("Wybór satelitów"))
+-         self["help"] = Label(_("Wybierz pozycje orbitalne, które mają zostać sprawdzone. OK zaznacza lub odznacza pozycję."))
+-+        self["hint"] = Label("Pozycje pochodzą z bukietów, lamedb oraz konfiguracji głowic tunera.")
+-         self["key_red"] = Label(_("Anuluj"))
+-         self["key_green"] = Label(_("Zapisz"))
+-         self["menu"] = MenuList([])
+-@@ -1398,8 +1540,8 @@
+-             pass
+-         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
+-             "ok": self.toggle,
+--            "cancel": self.close,
+--            "red": self.close,
+-+            "cancel": self.cancel,
+-+            "red": self.cancel,
+-             "green": self.save,
+-         }, -1)
+-         self.refresh()
+-@@ -1428,6 +1570,11 @@
+-         except Exception:
+-             pass
+- 
+-+    def cancel(self):
+-+        # openWithCallback must always receive one value; closing without it
+-+        # caused the GSOD in 2.0.0 on OpenATV 8.
+-+        self.close(None)
+-+
+-     def save(self):
+-         if not self.selected:
+-             self.session.open(MessageBox, _("Nie wybrano żadnej satelity."), type=MessageBox.TYPE_ERROR)
+-@@ -1439,26 +1586,31 @@
+-     skin = """
+-     <screen name="PPChannelSyncScreen" position="center,center" size="1280,720" title="PP Channel Sync">
+-         <eLabel position="0,0" size="1280,720" backgroundColor="#08111b" zPosition="-5" />
+--        <eLabel position="12,12" size="1256,696" backgroundColor="#101c29" zPosition="-4" />
+--        <eLabel position="20,20" size="1240,72" backgroundColor="#123a5a" zPosition="-3" />
+--        <eLabel position="38,130" size="760,400" backgroundColor="#071016" zPosition="-3" />
+--        <eLabel position="820,130" size="410,400" backgroundColor="#0c1725" zPosition="-3" />
+--        <widget name="title" position="42,34" size="700,42" font="Regular;35" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" />
+--        <widget name="version" position="990,34" size="220,38" font="Regular;29" halign="right" foregroundColor="#ffffff" backgroundColor="#123a5a" transparent="1" />
+--        <widget name="status" position="40,98" size="1170,28" font="Regular;22" foregroundColor="#ffffff" backgroundColor="#101c29" transparent="1" />
+--        <widget name="menu" position="52,145" size="730,365" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" />
+--        <widget name="side_title" position="842,150" size="360,34" font="Regular;28" foregroundColor="#00c8ff" backgroundColor="#0c1725" transparent="1" />
+--        <widget name="side_info" position="842,198" size="360,250" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#0c1725" transparent="1" />
+--        <ePixmap position="1050,365" size="130,130" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/qr.png" alphatest="on" />
+--        <widget name="footer" position="38,555" size="1190,34" font="Regular;21" foregroundColor="#cccccc" backgroundColor="#101c29" transparent="1" />
+--        <eLabel position="38,630" size="250,46" backgroundColor="#421010" />
+--        <eLabel position="306,630" size="250,46" backgroundColor="#0d3818" />
+--        <eLabel position="574,630" size="250,46" backgroundColor="#4b3d08" />
+--        <eLabel position="842,630" size="250,46" backgroundColor="#0e2c5f" />
+--        <widget name="key_red" position="55,640" size="220,28" font="Regular;22" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" />
+--        <widget name="key_green" position="323,640" size="220,28" font="Regular;22" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" />
+--        <widget name="key_yellow" position="591,640" size="220,28" font="Regular;22" foregroundColor="#ffe34a" backgroundColor="#4b3d08" transparent="1" />
+--        <widget name="key_blue" position="859,640" size="220,28" font="Regular;22" foregroundColor="#5aa2ff" backgroundColor="#0e2c5f" transparent="1" />
+-+        <eLabel position="10,10" size="1260,700" backgroundColor="#0f1a27" zPosition="-4" />
+-+        <eLabel position="18,18" size="1244,684" backgroundColor="#121d2b" zPosition="-3" />
+-+        <eLabel position="18,18" size="1244,74" backgroundColor="#123a5a" zPosition="-2" />
+-+        <eLabel position="38,130" size="755,392" backgroundColor="#071016" zPosition="-2" />
+-+        <eLabel position="812,130" size="420,392" backgroundColor="#0c1725" zPosition="-2" />
+-+        <eLabel position="38,550" size="1194,2" backgroundColor="#24618f" zPosition="-1" />
+-+        <widget name="title" position="38,28" size="720,42" font="Regular;35" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
+-+        <widget name="version" position="940,30" size="290,36" halign="right" font="Regular;28" foregroundColor="#ffffff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
+-+        <widget name="status" position="38,94" size="1190,30" font="Regular;22" foregroundColor="#ffffff" backgroundColor="#121d2b" transparent="1" zPosition="5" />
+-+        <widget name="menu" position="52,142" size="720,365" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" zPosition="5" />
+-+        <widget name="side_title" position="832,146" size="375,34" font="Regular;27" foregroundColor="#00c8ff" backgroundColor="#0c1725" transparent="1" zPosition="5" />
+-+        <widget name="side_info" position="832,192" size="370,145" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#0c1725" transparent="1" zPosition="5" />
+-+        <widget name="support_title" position="832,354" size="175,28" font="Regular;23" foregroundColor="#ffe34a" backgroundColor="#0c1725" transparent="1" zPosition="5" />
+-+        <widget name="support_text" position="832,388" size="190,75" font="Regular;18" foregroundColor="#dddddd" backgroundColor="#0c1725" transparent="1" zPosition="5" />
+-+        <ePixmap position="1040,348" size="150,150" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/qr.png" alphatest="on" zPosition="6" />
+-+        <widget name="help" position="38,560" size="1190,30" font="Regular;21" foregroundColor="#dddddd" backgroundColor="#121d2b" transparent="1" zPosition="5" />
+-+        <widget name="footer" position="38,596" size="1190,30" font="Regular;20" foregroundColor="#b8b8b8" backgroundColor="#121d2b" transparent="1" zPosition="5" />
+-+        <eLabel position="38,640" size="250,44" backgroundColor="#421010" zPosition="-1" />
+-+        <eLabel position="302,640" size="250,44" backgroundColor="#0d3818" zPosition="-1" />
+-+        <eLabel position="566,640" size="250,44" backgroundColor="#4b3d08" zPosition="-1" />
+-+        <eLabel position="830,640" size="250,44" backgroundColor="#0e2c5f" zPosition="-1" />
+-+        <widget name="key_red" position="52,649" size="225,28" font="Regular;22" foregroundColor="#ff3030" backgroundColor="#421010" transparent="1" zPosition="5" />
+-+        <widget name="key_green" position="316,649" size="225,28" font="Regular;22" foregroundColor="#25ff61" backgroundColor="#0d3818" transparent="1" zPosition="5" />
+-+        <widget name="key_yellow" position="580,649" size="225,28" font="Regular;22" foregroundColor="#ffe34a" backgroundColor="#4b3d08" transparent="1" zPosition="5" />
+-+        <widget name="key_blue" position="844,649" size="225,28" font="Regular;22" foregroundColor="#5aa2ff" backgroundColor="#0e2c5f" transparent="1" zPosition="5" />
+-     </screen>
+-     """
+- 
+-@@ -1467,27 +1619,35 @@
+-         self.session = session
+-         settings = load_settings()
+-         detected = detect_positions()
+--        self.positions = settings.get("positions") or detected
+-+        saved = settings.get("positions") or []
+-+        self.positions = sorted(set(saved if saved else detected))
+-         self.mode = settings.get("mode", MODE_SYNC)
+-         self["title"] = Label("PP Channel Sync")
+-+        try:
+-+            self.setTitle("PP Channel Sync v%s" % PLUGIN_VERSION)
+-+        except Exception:
+-+            pass
+-         self["version"] = Label("v%s" % PLUGIN_VERSION)
+--        self["status"] = Label("OK - opcja | Zielony - start | Żółty - satelity | Niebieski - przywróć")
+-+        self["status"] = Label("OK - opcja | Zielony - start | Żółty - wybór satelitów | Niebieski - przywróć")
+-         self["side_title"] = Label(_("Informacje"))
+-         self["side_info"] = Label("")
+--        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3" % (AUTHOR, CONTACT))
+--        self["key_red"] = Label(_("Wyjście"))
+--        self["key_green"] = Label(_("Start"))
+--        self["key_yellow"] = Label(_("Satelity"))
+--        self["key_blue"] = Label(_("Przywróć"))
+-+        self["support_title"] = Label(_("Wesprzyj"))
+-+        self["support_text"] = Label(_("Pomóż rozwijać\nlokalne projekty"))
+-+        self["help"] = Label("OK - funkcja  |  LEWO/PRAWO - zmiana trybu  |  MENU - raport  |  EXIT - wyjście")
+-+        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3  •  FB: Enigma 2 Oprogramowanie, dodatki" % (AUTHOR, CONTACT))
+-+        self["key_red"] = Label("Czerwony: wyjście")
+-+        self["key_green"] = Label("Zielony: uruchom")
+-+        self["key_yellow"] = Label("Żółty: satelity")
+-+        self["key_blue"] = Label("Niebieski: przywróć")
+-         self["menu"] = MenuList([])
+-         try:
+-             from enigma import gFont
+--            self["menu"].l.setFont(0, gFont("Regular", 26))
+--            self["menu"].l.setItemHeight(42)
+-+            self["menu"].l.setFont(0, gFont("Regular", 25))
+-+            self["menu"].l.setItemHeight(38)
+-             self["menu"].onSelectionChanged.append(self.update_info)
+-         except Exception:
+-             pass
+--        self["actions"] = ActionMap(["OkCancelActions", "ColorActions", "DirectionActions"], {
+-+        self["actions"] = ActionMap(["OkCancelActions", "ColorActions", "DirectionActions", "MenuActions"], {
+-             "ok": self.ok,
+-             "cancel": self.close,
+-             "red": self.close,
+-@@ -1496,20 +1656,28 @@
+-             "blue": self.restore_last,
+-             "left": self.left_right,
+-             "right": self.left_right,
+-+            "menu": self.show_report,
+-+            "up": self.up,
+-+            "down": self.down,
+-         }, -1)
+-         self.refresh()
+- 
+-     def menu_data(self):
+-         sats = ", ".join([orbital_label(x) for x in sorted(self.positions)]) if self.positions else "brak"
+-         return [
+--            ("satellites", "%s: %s" % (_("Wybrane satelity"), sats), "Wybór wielu pozycji orbitalnych. Synchronizacja wykonuje pełną pętlę dla każdej zaznaczonej satelity."),
+--            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport niczego nie zapisuje. Bezpieczna korekta zmienia wyłącznie istniejące service reference i brakujące rekordy lamedb."),
+-+            ("satellites", "%s: %s" % (_("Wybrane satelity"), sats), "Wybierz dowolną liczbę pozycji orbitalnych. Lista jest budowana z bukietów, lamedb oraz konfiguracji głowic."),
+-+            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport nie zapisuje zmian. Bezpieczna korekta zmienia tylko istniejące wpisy DVB-S i brakujące rekordy techniczne."),
+-+            ("check", _("Sprawdź listę"), "Pobiera bazę kontrolną i tworzy raport dla wszystkich zaznaczonych satelitów bez modyfikacji listy."),
+-             ("run", _("Uruchom synchronizację"), _("Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.")),
+--            ("cleanup", _("Napraw ślady wersji 1.x"), "Usuwa wyłącznie bloki 'nowe kanały - PP Channel Sync', stary bukiet nowych kanałów i podpisy dodane przez wersje 1.x. Najpierw wykonywana jest kopia."),
+--            ("report", _("Pokaż ostatni raport"), "Pokazuje wynik ostatniego sprawdzenia lub korekty."),
+--            ("restore", _("Przywróć ostatnią kopię"), "Przywraca lamedb, lamedb5 i bukiety z ostatniej kopii wykonanej przez wtyczkę."),
+-+            ("cleanup", _("Napraw ślady wersji 1.x"), "Usuwa wyłącznie rozpoznawalne bloki i błędne dopiski utworzone przez wersje 1.x. Przed operacją wykonywana jest kopia."),
+-+            ("report", _("Pokaż ostatni raport"), "Pokazuje czytelne podsumowanie ostatniego sprawdzenia lub korekty."),
+-+            ("details", _("Pokaż raport techniczny"), "Pokazuje szczegóły: zmienione reference, brakujące rekordy i wynik osobno dla każdej satelity."),
+-+            ("backup", _("Utwórz kopię bezpieczeństwa"), "Tworzy natychmiastową kopię lamedb, lamedb5 oraz wszystkich bukietów TV i radio."),
+-+            ("restore", _("Przywróć ostatnią kopię"), "Przywraca ostatnią kompletną kopię wykonaną przez PP Channel Sync."),
+-+            ("diagnostics", _("Diagnostyka systemu"), "Sprawdza wykryte satelity, format bazy kanałów, liczbę usług i bukietów bez zmieniania listy."),
+-+            ("support", _("Przygotuj raport do wysłania"), "Tworzy archiwum ZIP z raportami i diagnostyką w /tmp/ppchannelsync_support.zip."),
+-             ("update", _("Aktualizuj wtyczkę z GitHub"), "Sprawdza update.json, pobiera IPK, kontroluje SHA256 i instaluje nowszą wersję."),
+--            ("info", _("Informacje"), "PP Channel Sync 2.x jest przebudowany od podstaw. Nie zawiera automatycznych harmonogramów, kreatorów, zmiany nazw, duplikatów ani automatycznego dodawania/usuwania kanałów."),
+-+            ("info", _("Informacje"), "Bezpieczny rdzeń wielosatelitarny: brak automatycznego dodawania i usuwania kanałów, kopia oraz rollback przy błędzie."),
+-         ]
+- 
+-     def refresh(self):
+-@@ -1518,6 +1686,20 @@
+-         self.update_info()
+-         save_settings(self.mode, self.positions)
+- 
+-+    def up(self):
+-+        try:
+-+            self["menu"].up()
+-+        except Exception:
+-+            pass
+-+        self.update_info()
+-+
+-+    def down(self):
+-+        try:
+-+            self["menu"].down()
+-+        except Exception:
+-+            pass
+-+        self.update_info()
+-+
+-     def current_index(self):
+-         try:
+-             return self["menu"].getCurrentIndex()
+-@@ -1531,8 +1713,12 @@
+-         return self._items[idx]
+- 
+-     def update_info(self):
+--        item = self.current()
+--        self["side_info"].setText(item[2])
+-+        try:
+-+            item = self.current()
+-+            self["side_title"].setText("Opis opcji")
+-+            self["side_info"].setText(item[2])
+-+        except Exception:
+-+            pass
+- 
+-     def left_right(self):
+-         if self.current()[0] == "mode":
+-@@ -1545,21 +1731,38 @@
+-             self.select_satellites()
+-         elif action == "mode":
+-             self.left_right()
+-+        elif action == "check":
+-+            self.run_report()
+-         elif action == "run":
+-             self.run_sync()
+-         elif action == "cleanup":
+-             self.cleanup_legacy()
+-         elif action == "report":
+-             self.show_report()
+-+        elif action == "details":
+-+            self.show_details()
+-+        elif action == "backup":
+-+            self.backup_now()
+-         elif action == "restore":
+-             self.restore_last()
+-+        elif action == "diagnostics":
+-+            self.show_diagnostics()
+-+        elif action == "support":
+-+            self.make_support_zip()
+-         elif action == "update":
+-             self.check_update()
+-         elif action == "info":
+-             self.show_info()
+- 
+-     def popup(self, text, kind=MessageBox.TYPE_INFO):
+--        self.session.open(MessageBox, text, type=kind)
+-+        try:
+-+            self.session.open(MessageBox, text, type=kind)
+-+        except Exception:
+-+            try:
+-+                atomic_write(ERROR_PATH, str(text) + "\n")
+-+                self["status"].setText(str(text).replace("\n", " ")[:140])
+-+            except Exception:
+-+                pass
+- 
+-     def select_satellites(self):
+-         detected = detect_positions()
+-@@ -1569,28 +1772,39 @@
+-             return
+-         self.session.openWithCallback(self.satellites_selected, SatelliteSelectScreen, positions, self.positions)
+- 
+--    def satellites_selected(self, selected):
+--        if selected:
+-+    def satellites_selected(self, selected=None):
+-+        # selected=None means the selector was cancelled. The optional argument
+-+        # is required because some Enigma2 images call callbacks without a value.
+-+        if selected is not None:
+-             self.positions = list(selected)
+-             self.refresh()
+- 
+-+    def run_report(self):
+-+        self._run_with_mode(MODE_REPORT)
+-+
+-     def run_sync(self):
+-+        self._run_with_mode(self.mode)
+-+
+-+    def _run_with_mode(self, requested_mode):
+-         if not self.positions:
+-             self.popup(_("Nie wybrano żadnej satelity."), MessageBox.TYPE_ERROR)
+-             return
+-         clean = bool(legacy_artifacts())
+--        question = "Uruchomić %s dla: %s?" % (_(MODE_LABELS[self.mode]), ", ".join([orbital_label(x) for x in sorted(self.positions)]))
+--        if clean and self.mode == MODE_SYNC:
+-+        question = "Uruchomić %s dla: %s?" % (_(MODE_LABELS[requested_mode]), ", ".join([orbital_label(x) for x in sorted(self.positions)]))
+-+        if clean and requested_mode == MODE_SYNC:
+-             question += "\n\nWykryto ślady wersji 1.x. Zostaną usunięte z kopią bezpieczeństwa przed korektą."
+--        self.session.openWithCallback(lambda answer: self._run_confirmed(answer, clean), MessageBox, question, type=MessageBox.TYPE_YESNO, default=True)
+-+        self.session.openWithCallback(lambda answer=None: self._run_confirmed(answer, clean, requested_mode), MessageBox, question, type=MessageBox.TYPE_YESNO, default=True)
+- 
+--    def _run_confirmed(self, answer, clean):
+-+    def _run_confirmed(self, answer=None, clean=False, requested_mode=MODE_REPORT):
+-         if not answer:
+-             return
+-         try:
+--            self["status"].setText("Pobieranie bazy i analiza listy...")
+--            summary, _plan = execute_sync(self.positions, self.mode, clean_legacy=clean and self.mode == MODE_SYNC)
+-+            self["status"].setText("Pobieranie bazy i analiza wszystkich wybranych satelitów...")
+-+            summary, plan = execute_sync(self.positions, requested_mode, clean_legacy=clean and requested_mode == MODE_SYNC)
+-             self["status"].setText("Zakończono. Raport: %s" % REPORT_PATH)
+-+            append_history("%s | satelity %s | sprawdzone %d | zmiany %d" % (
+-+                MODE_LABELS[requested_mode], ",".join([orbital_label(x) for x in sorted(self.positions)]), plan.get("checked", 0), len(plan.get("ref_changes", []))
+-+            ))
+-             self.popup(summary)
+-         except Exception as exc:
+-             try:
+-@@ -1607,13 +1821,14 @@
+-             return
+-         self.session.openWithCallback(self._cleanup_confirmed, MessageBox, "Usunąć ślady wersji 1.x?\n\nZostanie wykonana kopia bezpieczeństwa. Usuwane są tylko rozpoznawalne bloki PP Channel Sync.", type=MessageBox.TYPE_YESNO, default=False)
+- 
+--    def _cleanup_confirmed(self, answer):
+-+    def _cleanup_confirmed(self, answer=None):
+-         if not answer:
+-             return
+-         backup = make_backup()
+-         try:
+-             changed, removed = remove_legacy_artifacts()
+-             reload_bouquets()
+-+            append_history("naprawa śladów 1.x | pliki %d | linie %d" % (changed, removed))
+-             self.popup("Naprawa zakończona.\n\nZmienione pliki: %d\nUsunięte linie: %d\nKopia: %s" % (changed, removed, backup))
+-         except Exception as exc:
+-             restore_backup(backup)
+-@@ -1623,24 +1838,61 @@
+-         if not os.path.isfile(REPORT_PATH):
+-             self.popup("Brak raportu.")
+-             return
+--        self.popup(read_text(REPORT_PATH))
+-+        text = read_text(REPORT_PATH)
+-+        if len(text) > 5600:
+-+            text = text[:5600] + "\n\n...\nPełny raport: %s" % REPORT_PATH
+-+        self.popup(text)
+-+
+-+    def show_details(self):
+-+        if not os.path.isfile(DETAIL_REPORT_PATH):
+-+            self.popup("Brak raportu technicznego.")
+-+            return
+-+        text = read_text(DETAIL_REPORT_PATH)
+-+        if len(text) > 5600:
+-+            text = text[:5600] + "\n\n...\nPełny raport: %s" % DETAIL_REPORT_PATH
+-+        self.popup(text)
+-+
+-+    def backup_now(self):
+-+        try:
+-+            path = make_backup()
+-+            append_history("ręczna kopia | %s" % path)
+-+            self.popup("Kopia bezpieczeństwa została utworzona:\n%s" % path)
+-+        except Exception as exc:
+-+            self.popup("Nie udało się utworzyć kopii:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+- 
+-     def restore_last(self):
+-         path = latest_backup()
+-         if not path:
+-             self.popup("Brak kopii bezpieczeństwa.", MessageBox.TYPE_ERROR)
+-             return
+--        self.session.openWithCallback(lambda answer: self._restore_confirmed(answer, path), MessageBox, "Przywrócić ostatnią kopię?\n\n%s" % path, type=MessageBox.TYPE_YESNO, default=False)
+-+        self.session.openWithCallback(lambda answer=None: self._restore_confirmed(answer, path), MessageBox, "Przywrócić ostatnią kopię?\n\n%s" % path, type=MessageBox.TYPE_YESNO, default=False)
+- 
+--    def _restore_confirmed(self, answer, path):
+-+    def _restore_confirmed(self, answer=None, path=None):
+-         if not answer:
+-             return
+-         try:
+-             restore_backup(path)
+-+            append_history("przywrócono kopię | %s" % path)
+-             self.popup("Przywrócono kopię:\n%s" % path)
+-         except Exception as exc:
+-             self.popup("Nie udało się przywrócić kopii:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+- 
+-+    def show_diagnostics(self):
+-+        try:
+-+            text = create_diagnostics(self.positions)
+-+            if len(text) > 5600:
+-+                text = text[:5600] + "\n\n...\nPełna diagnostyka: %s" % DIAGNOSTIC_PATH
+-+            self.popup(text)
+-+        except Exception as exc:
+-+            self.popup("Nie udało się wykonać diagnostyki:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+-+
+-+    def make_support_zip(self):
+-+        try:
+-+            path = create_support_zip(self.positions)
+-+            self.popup("Raport do wysłania został utworzony:\n%s" % path)
+-+        except Exception as exc:
+-+            self.popup("Nie udało się utworzyć raportu ZIP:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+-+
+-     def check_update(self):
+-         try:
+-             manifest = fetch_json(UPDATE_MANIFEST_URL)
+-@@ -1654,11 +1906,11 @@
+-             if isinstance(notes, list):
+-                 notes = "\n".join(["- " + str(x) for x in notes])
+-             text = "Dostępna aktualizacja %s.\n\n%s\n\nPobrać i zainstalować?" % (remote_version, notes[:1400])
+--            self.session.openWithCallback(lambda answer: self._update_confirmed(answer, manifest), MessageBox, text, type=MessageBox.TYPE_YESNO, default=True)
+-+            self.session.openWithCallback(lambda answer=None: self._update_confirmed(answer, manifest), MessageBox, text, type=MessageBox.TYPE_YESNO, default=True)
+-         except Exception as exc:
+-             self.popup("Nie udało się sprawdzić aktualizacji:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+- 
+--    def _update_confirmed(self, answer, manifest):
+-+    def _update_confirmed(self, answer=None, manifest=None):
+-         if not answer:
+-             return
+-         try:
+-@@ -1669,7 +1921,7 @@
+-             self.popup("Nie udało się zainstalować aktualizacji:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+- 
+-     def show_info(self):
+--        text = "PP Channel Sync v%s\n%s\n\n%s\n\nNajważniejsze zasady 2.x:\n- jedna baza wielosatelitarna i filtrowanie po wybranych pozycjach,\n- każda zaznaczona satelita jest przetwarzana osobno,\n- brak automatycznego dodawania i usuwania kanałów,\n- brak markerów, dat i zmian nazw bukietów,\n- poprawiany jest wyłącznie istniejący #SERVICE,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie." % (PLUGIN_VERSION, AUTHOR, _("Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów."))
+-+        text = "PP Channel Sync v%s\n%s\n%s\n\nZasady działania:\n- prawdziwy wybór wielu satelitów,\n- każda zaznaczona pozycja jest analizowana osobno,\n- brak automatycznego dodawania i usuwania kanałów,\n- brak zmian nazw i markerów,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie,\n- raport oraz diagnostyka do wysłania autorowi." % (PLUGIN_VERSION, AUTHOR, CONTACT)
+-         self.popup(text)
+- 
+- 
+-@@ -1680,7 +1932,7 @@
+- def Plugins(**kwargs):
+-     return [PluginDescriptor(
+-         name=PLUGIN_NAME,
+--        description="PP Channel Sync 2.x - safe multi-satellite correction",
+-+        description="PP Channel Sync 2.0.1 - bezpieczna korekta wielu satelitów",
+-         where=PluginDescriptor.WHERE_PLUGINMENU,
+-         icon="plugin.png",
+-         fnc=main,
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.1-to-2.1.0.patch /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.1-to-2.1.0.patch
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.1-to-2.1.0.patch	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.1-to-2.1.0.patch	2026-07-17 17:39:42.042536461 +0000
+@@ -0,0 +1,1115 @@
++diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/CHANGELOG.md /mnt/data/PPChannelSync-Plugin-2.1.0/CHANGELOG.md
++--- /mnt/data/PPChannelSync-Plugin-2.0.1/CHANGELOG.md	2026-07-17 17:02:12.699784265 +0000
+++++ /mnt/data/PPChannelSync-Plugin-2.1.0/CHANGELOG.md	2026-07-17 17:38:29.535537141 +0000
++@@ -1,20 +1,28 @@
++ # Changelog
++ 
+++## 2.1.0
+++
+++- przywrócono dopisywanie nowych kanałów na końcu pasujących, istniejących bukietów;
+++- źródło kontrolne pobiera teraz również bukiety TV, a nie tylko `lamedb`/`lamedb5`;
+++- dodano ostrożne dopasowanie bukietu po nazwie i wspólnych kanałach;
+++- nowe kanały są filtrowane osobno dla każdej zaznaczonej satelity;
+++- dodano jeden kontrolowany blok `nowe kanały - PP Channel Sync` z markerem końcowym;
+++- kolejne uruchomienie nie dubluje kanałów ani separatorów;
+++- zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki;
+++- kanał ręcznie przeniesiony z bloku do właściwej części bukietu nie jest ponownie dopisywany;
+++- każdy nowy kanał otrzymuje wcześniej zweryfikowany wpis w lokalnym `lamedb`/`lamedb5`;
+++- przywrócono aktualizację daty i podpisu `@ PP Channel Sync` na dole listy bukietów;
+++- stary podpis twórcy listy jest usuwany wyłącznie wtedy, gdy jest markerem informacyjnym, a nie prawdziwym wpisem bukietu;
+++- raport pokazuje liczbę dopisanych kanałów oraz wynik osobno dla każdej satelity;
+++- zachowano kopię bezpieczeństwa i automatyczny rollback.
+++
++ ## 2.0.1
++ 
++ - naprawiono GSOD po anulowaniu ekranu wyboru satelitów;
++-- callback wyboru satelitów przyjmuje teraz również brak wartości zwrotnej;
++-- wykrywanie pozycji orbitalnych łączy bukiety, `lamedb`/`lamedb5` oraz konfigurację głowic w `/etc/enigma2/settings`;
++-- usunięto błąd 2.0.0, przez który po wykryciu jednej pozycji pozostałe satelity były ukrywane;
++-- przywrócono czytelny interfejs z pełnymi opisami kolorowych przycisków i poprawnymi warstwami `zPosition`;
++-- przebudowano ekran wyboru wielu satelitów;
++-- przywrócono bezpieczne funkcje użytkowe: raport techniczny, ręczna kopia, diagnostyka i paczka wsparcia ZIP;
++-- dodano historię podstawowych operacji;
++-- zachowano bezpieczny rdzeń 2.x: brak automatycznego dodawania/usuwania kanałów, kopia i rollback.
+++- poprawiono wykrywanie wielu pozycji orbitalnych;
+++- przywrócono czytelny interfejs i funkcje diagnostyczne.
++ 
++ ## 2.0.0
++ 
++ - nowy wielosatelitarny silnik synchronizacji;
++-- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`;
++-- poprawa technicznych reference bez zmiany kolejności bukietów;
++-- naprawa śladów pozostawionych przez wersje 1.x.
+++- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`.
++diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/MIGRATION_2.0.md /mnt/data/PPChannelSync-Plugin-2.1.0/MIGRATION_2.0.md
++--- /mnt/data/PPChannelSync-Plugin-2.0.1/MIGRATION_2.0.md	2026-07-17 16:48:10.036067671 +0000
+++++ /mnt/data/PPChannelSync-Plugin-2.1.0/MIGRATION_2.0.md	2026-07-17 17:38:29.549919253 +0000
++@@ -1,12 +1,9 @@
++-# Migration to PP Channel Sync 2.0
+++# Migracja do PP Channel Sync 2.1
++ 
++-1. Install version 2.0.0 and restart Enigma2 GUI.
++-2. Open PP Channel Sync.
++-3. Press the yellow button and select all satellite positions used by the list.
++-4. Run **Report only** first.
++-5. Review `/tmp/ppchannelsync_report.txt`.
++-6. Change the mode to **Safe correction** and run again.
+++1. Zainstaluj wersję 2.1.0 i uruchom ponownie GUI Enigma2.
+++2. Wybierz wszystkie używane pozycje orbitalne.
+++3. Najpierw wykonaj `Raport bez zapisu`.
+++4. Sprawdź liczbę nowych kanałów przewidzianych do dopisania.
+++5. Uruchom `Bezpieczną korektę`.
++ 
++-If the old version appended broken entries after the marker `nowe kanały - PP Channel Sync`, version 2.0 detects that block. During safe correction it asks for confirmation and removes the recognized old block after making a backup.
++-
++-Version 2.0 never adds new channels and never deletes existing channels automatically.
+++Wersja 2.1.0 rozpoznaje stare bloki `nowe kanały - PP Channel Sync`, zachowuje poprawne kanały i przebudowuje je do jednego kontrolowanego bloku z markerem końcowym. Wtyczka nie usuwa automatycznie zwykłych kanałów użytkownika.
++diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/README.md /mnt/data/PPChannelSync-Plugin-2.1.0/README.md
++--- /mnt/data/PPChannelSync-Plugin-2.0.1/README.md	2026-07-17 17:02:12.708271315 +0000
+++++ /mnt/data/PPChannelSync-Plugin-2.1.0/README.md	2026-07-17 17:38:29.527181900 +0000
++@@ -1,28 +1,34 @@
++-# PP Channel Sync 2.0.1
+++# PP Channel Sync 2.1.0
++ 
++-**PP Channel Sync** jest wtyczką Enigma2 do bezpiecznej korekty technicznych parametrów istniejącej listy kanałów satelitarnych.
+++**PP Channel Sync** to wtyczka Enigma2 służąca do bezpiecznej korekty parametrów kanałów satelitarnych oraz dopisywania pewnych nowych kanałów do istniejących bukietów użytkownika.
++ 
++ Autor: **by Paweł Pawełek**  
++ Kontakt: **aio-iptv@wp.pl**
++ 
++-## Najważniejsze zasady
+++## Zasady działania
++ 
++ - wybór jednej, dwóch lub większej liczby pozycji orbitalnych;
++-- każda zaznaczona satelita jest analizowana osobno;
++-- satelity są wykrywane z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
++-- korekta obejmuje wyłącznie istniejące wpisy DVB-S/DVB-S2;
++-- zachowywane są nazwy i kolejność bukietów;
++-- wtyczka nie dodaje oraz nie usuwa kanałów automatycznie;
++-- brak dopisywania dat, podpisów i separatorów do listy;
+++- osobna analiza każdej zaznaczonej satelity;
+++- wykrywanie satelitów z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
+++- korekta istniejących wpisów DVB-S/DVB-S2 bez zmiany ich kolejności;
+++- dopisywanie nowych kanałów wyłącznie na końcu pewnie dopasowanego, istniejącego bukietu;
+++- jeden czytelny blok `nowe kanały - PP Channel Sync` w każdym zmienionym bukiecie;
+++- brak automatycznego usuwania kanałów;
+++- zachowanie nazw oraz układu bukietów użytkownika;
+++- aktualizacja podpisu i daty na dole widoku bukietów;
++ - natywna obsługa `lamedb /4/` i `lamedb5 /5/`;
++-- sprawdzona kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
+++- pełna kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
++ - zgodność z Enigma2 Python 2.7 oraz Python 3.
++ 
++-## Poprawki 2.0.1
+++## Co zmieniono w 2.1.0
++ 
++-Wersja 2.0.0 mogła wywołać GSOD po anulowaniu ekranu wyboru satelitów. Dodatkowo wykrywanie kończyło się po znalezieniu pierwszej pozycji w bukietach, dlatego na ekranie mogła być widoczna tylko jedna satelita. W 2.0.1 oba problemy zostały usunięte.
+++W 2.0.x silnik był zbyt mocno ograniczony i nie wykonywał dwóch funkcji znanych z wcześniejszych wydań. W 2.1.0 przywrócono je w bezpiecznej formie:
++ 
++-Przywrócono również czytelniejszy interfejs i bezpieczne funkcje użytkowe: raport techniczny, ręczną kopię, diagnostykę oraz ZIP do zgłoszenia błędu.
+++- nowe kanały są wykrywane na podstawie bukietów z bazy kontrolnej i dopisywane na dół odpowiadającego im bukietu;
+++- kanały z wcześniejszego bloku wtyczki są zachowywane i nie są dublowane przy kolejnej synchronizacji;
+++- jeżeli użytkownik przeniesie kanał z bloku do zwykłej części bukietu, wtyczka nie dopisze jego kopii;
+++- usuwane są stare podpisy twórcy listy zapisane jako markery, a na dole `bouquets.tv` pojawia się aktualna data i `@ PP Channel Sync`;
+++- obsługa wielu satelitów obejmuje także wykrywanie nowych kanałów osobno dla każdej pozycji.
++ 
++ ## Instalacja
++ 
++diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/README_TEST.md /mnt/data/PPChannelSync-Plugin-2.1.0/README_TEST.md
++--- /mnt/data/PPChannelSync-Plugin-2.0.1/README_TEST.md	2026-07-17 17:02:12.716259798 +0000
+++++ /mnt/data/PPChannelSync-Plugin-2.1.0/README_TEST.md	2026-07-17 17:38:29.543118315 +0000
++@@ -1,10 +1,12 @@
++-# Test PP Channel Sync 2.0.1
+++# Test PP Channel Sync 2.1.0
++ 
++ 1. Zainstaluj IPK ręcznie i wykonaj restart GUI.
++-2. Otwórz wtyczkę i naciśnij żółty przycisk.
++-3. Sprawdź, czy widoczne są wszystkie pozycje skonfigurowane w głowicach oraz obecne w liście.
++-4. Anuluj wybór czerwonym lub EXIT — GUI nie może się zrestartować ani utworzyć crashloga.
++-5. Otwórz wybór ponownie, zaznacz co najmniej dwie satelity i zapisz zielonym.
++-6. Uruchom „Sprawdź listę”. W raporcie musi znajdować się osobny wynik dla każdej zaznaczonej pozycji.
++-7. Dopiero po poprawnym raporcie uruchom tryb „Bezpieczna korekta”.
++-8. W razie problemu utwórz „Przygotuj raport do wysłania” i pobierz `/tmp/ppchannelsync_support.zip`.
+++2. Żółtym przyciskiem zaznacz co najmniej dwie używane satelity.
+++3. Ustaw `Raport bez zapisu` i uruchom synchronizację.
+++4. Sprawdź, czy raport pokazuje osobny wynik oraz liczbę nowych kanałów dla każdej pozycji.
+++5. Ustaw `Bezpieczna korekta` i uruchom ponownie.
+++6. Otwórz bukiety, które mają odpowiedniki w bazie kontrolnej.
+++7. Nowe kanały powinny znajdować się na samym dole pod markerem `nowe kanały - PP Channel Sync`.
+++8. Na dole widoku listy bukietów powinny być aktualna data i wpis `@ PP Channel Sync`.
+++9. Uruchom korektę drugi raz. Kanały i markery nie mogą się zdublować.
+++10. W razie problemu utwórz `Przygotuj raport do wysłania` i pobierz `/tmp/ppchannelsync_support.zip`.
++diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.0-to-2.0.1.patch /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.0-to-2.0.1.patch
++--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/PPChannelSync-2.0.0-to-2.0.1.patch	2026-07-17 17:03:31.250108235 +0000
+++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/PPChannelSync-2.0.0-to-2.0.1.patch	1970-01-01 00:00:00.000000000 +0000
++@@ -1,970 +0,0 @@
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/CHANGELOG.md PPChannelSync-Plugin-2.0.1/CHANGELOG.md
++---- PPChannelSync-Plugin-2.0.0/CHANGELOG.md	2026-07-17 16:48:10.028255535 +0000
++-+++ PPChannelSync-Plugin-2.0.1/CHANGELOG.md	2026-07-17 17:02:12.699784265 +0000
++-@@ -1,32 +1,20 @@
++- # Changelog
++- 
++--## 2.0.0
++--
++--Ground-up redesign focused only on reliable synchronization of existing DVB-S services.
++-+## 2.0.1
++- 
++--### Removed from the 1.x branch
++-+- naprawiono GSOD po anulowaniu ekranu wyboru satelitów;
++-+- callback wyboru satelitów przyjmuje teraz również brak wartości zwrotnej;
++-+- wykrywanie pozycji orbitalnych łączy bukiety, `lamedb`/`lamedb5` oraz konfigurację głowic w `/etc/enigma2/settings`;
++-+- usunięto błąd 2.0.0, przez który po wykryciu jednej pozycji pozostałe satelity były ukrywane;
++-+- przywrócono czytelny interfejs z pełnymi opisami kolorowych przycisków i poprawnymi warstwami `zPosition`;
++-+- przebudowano ekran wyboru wielu satelitów;
++-+- przywrócono bezpieczne funkcje użytkowe: raport techniczny, ręczna kopia, diagnostyka i paczka wsparcia ZIP;
++-+- dodano historię podstawowych operacji;
++-+- zachowano bezpieczny rdzeń 2.x: brak automatycznego dodawania/usuwania kanałów, kopia i rollback.
++- 
++--- automatic channel addition to existing bouquets;
++--- automatic channel removal;
++--- bouquet renaming and category tools;
++--- automatic schedules and background execution;
++--- duplicate/channel-search/EPG/picon helper tools;
++--- source-comparison screens;
++--- date and author markers written to bouquet files;
++--- HTML discovery and fixed Vhannibal download identifiers.
++--
++--### Added or corrected
++-+## 2.0.0
++- 
++--- genuine multi-selection of orbital positions;
++--- a full processing loop for every selected satellite;
++--- one validated multi-satellite database with automatic GitHub fallback;
++--- strict exact-name matching within the same orbital position;
++--- same-core repair for missing local lamedb records;
++--- correct hexadecimal `service_type` handling in `lamedb5`;
++--- native record generation for both lamedb4 and lamedb5;
++--- no line insertion into user bouquets during normal synchronization;
++--- validation that blocks raw lamedb records from being written as bouquet text;
++--- migration cleanup for exact leftovers created by 1.x;
++--- transactional backup, verification and rollback;
++--- per-satellite statistics in the report;
++--- simplified PL/EN interface.
++-+- nowy wielosatelitarny silnik synchronizacji;
++-+- natywna obsługa `lamedb /4/` oraz `lamedb5 /5/`;
++-+- poprawa technicznych reference bez zmiany kolejności bukietów;
++-+- naprawa śladów pozostawionych przez wersje 1.x.
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/README.md PPChannelSync-Plugin-2.0.1/README.md
++---- PPChannelSync-Plugin-2.0.0/README.md	2026-07-17 16:48:10.019976250 +0000
++-+++ PPChannelSync-Plugin-2.0.1/README.md	2026-07-17 17:02:12.708271315 +0000
++-@@ -1,54 +1,42 @@
++--# PP Channel Sync 2.0.0
++-+# PP Channel Sync 2.0.1
++- 
++--**PP Channel Sync** is an Enigma2 plugin for safely correcting technical service references in an existing satellite channel list.
++-+**PP Channel Sync** jest wtyczką Enigma2 do bezpiecznej korekty technicznych parametrów istniejącej listy kanałów satelitarnych.
++- 
++--Author: **by Paweł Pawełek**  
++--Contact: **aio-iptv@wp.pl**
++-+Autor: **by Paweł Pawełek**  
++-+Kontakt: **aio-iptv@wp.pl**
++- 
++--## Why version 2.0 was rebuilt
++-+## Najważniejsze zasady
++- 
++--The 1.x branch accumulated too many partially related tools. It also mixed three risky operations: correcting existing services, adding new channels and modifying bouquet markers. Version 2.0 replaces that model with one small and verifiable synchronization engine.
++-+- wybór jednej, dwóch lub większej liczby pozycji orbitalnych;
++-+- każda zaznaczona satelita jest analizowana osobno;
++-+- satelity są wykrywane z bukietów, `lamedb`/`lamedb5` i konfiguracji głowic;
++-+- korekta obejmuje wyłącznie istniejące wpisy DVB-S/DVB-S2;
++-+- zachowywane są nazwy i kolejność bukietów;
++-+- wtyczka nie dodaje oraz nie usuwa kanałów automatycznie;
++-+- brak dopisywania dat, podpisów i separatorów do listy;
++-+- natywna obsługa `lamedb /4/` i `lamedb5 /5/`;
++-+- sprawdzona kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
++-+- zgodność z Enigma2 Python 2.7 oraz Python 3.
++- 
++--## Core behavior
++-+## Poprawki 2.0.1
++- 
++--- detects satellite positions used by the receiver;
++--- allows selecting one, two or more satellite positions;
++--- processes every selected position independently;
++--- downloads one validated multi-satellite reference database;
++--- corrects only existing DVB-S/DVB-S2 entries;
++--- preserves channel order, bouquet names and descriptions;
++--- does not add channels automatically;
++--- does not remove channels automatically;
++--- does not append dates, credits or separators to bouquets;
++--- supports native `lamedb /4/` and `lamedb5 /5/` formats;
++--- creates a verified backup and automatically restores it after a write failure;
++--- supports Enigma2 Python 2.7 and Python 3.
++-+Wersja 2.0.0 mogła wywołać GSOD po anulowaniu ekranu wyboru satelitów. Dodatkowo wykrywanie kończyło się po znalezieniu pierwszej pozycji w bukietach, dlatego na ekranie mogła być widoczna tylko jedna satelita. W 2.0.1 oba problemy zostały usunięte.
++- 
++--## Important lamedb5 correction
++-+Przywrócono również czytelniejszy interfejs i bezpieczne funkcje użytkowe: raport techniczny, ręczną kopię, diagnostykę oraz ZIP do zgłoszenia błędu.
++- 
++--In `lamedb5`, `service_type` is treated as a hexadecimal value. It is no longer converted as a decimal number. This prevents invalid references and entries displayed as raw technical strings.
++--
++--## Migration from 1.x
++--
++--Version 2.0 can remove only recognized leftovers created by old PP Channel Sync versions:
++--
++--- the appended `nowe kanały - PP Channel Sync` block;
++--- the old `PP Channel Sync - Nowe kanały` bouquet;
++--- informational PP Channel Sync markers in `bouquets.tv`.
++--
++--A backup is always created first.
++--
++--## Installation
++-+## Instalacja
++- 
++- ```sh
++- wget -q -O - https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/installer.sh | /bin/sh
++- ```
++- 
++--Restart Enigma2 GUI after installation.
++-+Po instalacji wykonaj restart GUI Enigma2.
++- 
++--## Files and reports
++-+## Raporty
++- 
++--- backup directory: `/etc/enigma2/ppchannelsync_backups/`
++--- summary report: `/tmp/ppchannelsync_report.txt`
++--- detailed report: `/tmp/ppchannelsync_details.txt`
++--- error report: `/tmp/ppchannelsync_error.txt`
++-+- raport główny: `/tmp/ppchannelsync_report.txt`
++-+- raport techniczny: `/tmp/ppchannelsync_details.txt`
++-+- raport błędu: `/tmp/ppchannelsync_error.txt`
++-+- diagnostyka: `/tmp/ppchannelsync_diagnostics.txt`
++-+- paczka wsparcia: `/tmp/ppchannelsync_support.zip`
++-+- kopie: `/etc/enigma2/ppchannelsync_backups/`
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/README_TEST.md PPChannelSync-Plugin-2.0.1/README_TEST.md
++---- PPChannelSync-Plugin-2.0.0/README_TEST.md	2026-07-17 16:48:10.051318391 +0000
++-+++ PPChannelSync-Plugin-2.0.1/README_TEST.md	2026-07-17 17:02:12.716259798 +0000
++-@@ -1,15 +1,10 @@
++--# Test procedure
++-+# Test PP Channel Sync 2.0.1
++- 
++--1. Install the IPK on a test receiver.
++--2. Restart GUI.
++--3. Open PP Channel Sync.
++--4. Select two or more detected satellites with the yellow button.
++--5. Run `Report only`.
++--6. Confirm that the report contains a separate line for every selected satellite.
++--7. Run `Safe correction`.
++--8. Verify that bouquet order, names and descriptions are unchanged.
++--9. Verify that no `PP Channel Sync` marker or `nowe kanały` block is appended.
++--10. Verify channels from every selected satellite.
++--11. Test `Restore last backup`.
++--
++--For migration testing, use a backup containing an old `nowe kanały - PP Channel Sync` block. Confirm that only the recognized block is removed.
++-+1. Zainstaluj IPK ręcznie i wykonaj restart GUI.
++-+2. Otwórz wtyczkę i naciśnij żółty przycisk.
++-+3. Sprawdź, czy widoczne są wszystkie pozycje skonfigurowane w głowicach oraz obecne w liście.
++-+4. Anuluj wybór czerwonym lub EXIT — GUI nie może się zrestartować ani utworzyć crashloga.
++-+5. Otwórz wybór ponownie, zaznacz co najmniej dwie satelity i zapisz zielonym.
++-+6. Uruchom „Sprawdź listę”. W raporcie musi znajdować się osobny wynik dla każdej zaznaczonej pozycji.
++-+7. Dopiero po poprawnym raporcie uruchom tryb „Bezpieczna korekta”.
++-+8. W razie problemu utwórz „Przygotuj raport do wysłania” i pobierz `/tmp/ppchannelsync_support.zip`.
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/tests/test_core.py PPChannelSync-Plugin-2.0.1/tests/test_core.py
++---- PPChannelSync-Plugin-2.0.0/tests/test_core.py	2026-07-17 16:47:13.164865891 +0000
++-+++ PPChannelSync-Plugin-2.0.1/tests/test_core.py	2026-07-17 17:01:02.795887349 +0000
++-@@ -81,7 +81,7 @@
++- spec = importlib.util.spec_from_file_location('ppcs2', PLUGIN)
++- p = importlib.util.module_from_spec(spec)
++- spec.loader.exec_module(p)
++--assert p.PLUGIN_VERSION == '2.0.0'
++-+assert p.PLUGIN_VERSION == '2.0.1'
++- root = tempfile.mkdtemp(prefix='ppcs2_test_')
++- try:
++-     e2 = os.path.join(root,'e2'); os.makedirs(e2)
++-@@ -101,6 +101,14 @@
++-     assert ('19','101','1001','1','820000') in remote_db['services']
++- 
++-     p.E2_PATH=e2; p.BACKUP_DIR=os.path.join(root,'backups'); p.REPORT_PATH=os.path.join(root,'report.txt'); p.DETAIL_REPORT_PATH=os.path.join(root,'details.txt')
++-+
++-+    # Satellite detection must merge bouquets, lamedb and tuner configuration.
++-+    write(os.path.join(e2,'settings'), 'config.Nims.0.configMode=simple\nconfig.Nims.0.diseqcA=130\nconfig.Nims.0.diseqcB=192\nconfig.Nims.1.configMode=advanced\nconfig.Nims.1.advanced.sat.235.lnb=1\n')
++-+    positions=p.detect_positions()
++-+    assert 130 in positions and 192 in positions and 235 in positions, positions
++-+
++-+    # The callback must accept cancellation without a returned value.
++-+    assert p.PPChannelSyncScreen.satellites_selected.__defaults__ == (None,)
++-     remote={'label':'fixture','db':remote_db,'positions':set([130,192])}
++-     plan=p.build_plan([130,192],remote)
++-     assert plan['checked']==2, plan
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/tests/test_ui_callbacks.py PPChannelSync-Plugin-2.0.1/tests/test_ui_callbacks.py
++---- PPChannelSync-Plugin-2.0.0/tests/test_ui_callbacks.py	1970-01-01 00:00:00.000000000 +0000
++-+++ PPChannelSync-Plugin-2.0.1/tests/test_ui_callbacks.py	2026-07-17 17:03:11.874778565 +0000
++-@@ -0,0 +1,106 @@
++-+# -*- coding: utf-8 -*-
++-+from __future__ import print_function
++-+import os
++-+import sys
++-+import types
++-+import importlib.util
++-+
++-+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
++-+PLUGIN = os.path.join(ROOT, 'usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py')
++-+
++-+modules = {}
++-+for name in ['Plugins','Plugins.Plugin','Screens','Screens.Screen','Screens.MessageBox','Components','Components.ActionMap','Components.Label','Components.MenuList']:
++-+    modules[name] = types.ModuleType(name)
++-+
++-+class PD(object):
++-+    WHERE_PLUGINMENU = 1
++-+    def __init__(self,*a,**k): pass
++-+
++-+class Screen(dict):
++-+    def __init__(self, session=None, *a, **k):
++-+        dict.__init__(self)
++-+        self.session = session
++-+        self.closed_with = None
++-+    def close(self, *args):
++-+        self.closed_with = args
++-+    def setTitle(self, *args):
++-+        pass
++-+
++-+class MB(object):
++-+    TYPE_INFO=0; TYPE_ERROR=1; TYPE_YESNO=2
++-+
++-+class DummyL(object):
++-+    def setFont(self,*a): pass
++-+    def setItemHeight(self,*a): pass
++-+
++-+class Label(object):
++-+    def __init__(self, text=''):
++-+        self.text=text
++-+    def setText(self,text):
++-+        self.text=text
++-+
++-+class MenuList(object):
++-+    def __init__(self, values):
++-+        self.list=list(values)
++-+        self.index=0
++-+        self.l=DummyL()
++-+        self.onSelectionChanged=[]
++-+    def setList(self, values):
++-+        self.list=list(values)
++-+    def getCurrentIndex(self):
++-+        return self.index
++-+    def moveToIndex(self,index):
++-+        self.index=index
++-+    def up(self):
++-+        self.index=max(0,self.index-1)
++-+    def down(self):
++-+        self.index=min(max(0,len(self.list)-1),self.index+1)
++-+
++-+class ActionMap(object):
++-+    def __init__(self,*a,**k): pass
++-+
++-+modules['Plugins.Plugin'].PluginDescriptor=PD
++-+modules['Screens.Screen'].Screen=Screen
++-+modules['Screens.MessageBox'].MessageBox=MB
++-+modules['Components.ActionMap'].ActionMap=ActionMap
++-+modules['Components.Label'].Label=Label
++-+modules['Components.MenuList'].MenuList=MenuList
++-+sys.modules.update(modules)
++-+
++-+spec=importlib.util.spec_from_file_location('ppcs201_ui',PLUGIN)
++-+p=importlib.util.module_from_spec(spec)
++-+spec.loader.exec_module(p)
++-+
++-+class Session(object):
++-+    def open(self,*a,**k): pass
++-+    def openWithCallback(self,*a,**k): pass
++-+
++-+selector=p.SatelliteSelectScreen(Session(),[130,192],[130])
++-+selector.cancel()
++-+assert selector.closed_with == (None,), selector.closed_with
++-+selector=p.SatelliteSelectScreen(Session(),[130,192],[130])
++-+selector.toggle()
++-+assert 130 not in selector.selected
++-+selector.toggle()
++-+assert 130 in selector.selected
++-+selector.save()
++-+assert selector.closed_with == ([130],), selector.closed_with
++-+
++-+class FakeMain(object):
++-+    def __init__(self):
++-+        self.positions=[130]
++-+        self.refreshed=False
++-+    def refresh(self): self.refreshed=True
++-+
++-+fake=FakeMain()
++-+p.PPChannelSyncScreen.satellites_selected(fake)
++-+assert fake.positions == [130] and not fake.refreshed
++-+p.PPChannelSyncScreen.satellites_selected(fake,[130,192])
++-+assert fake.positions == [130,192] and fake.refreshed
++-+
++-+for name in ('key_red','key_green','key_yellow','key_blue'):
++-+    assert 'name="%s"' % name in p.PPChannelSyncScreen.skin
++-+    segment=p.PPChannelSyncScreen.skin.split('name="%s"' % name,1)[1].split('/>',1)[0]
++-+    assert 'zPosition="5"' in segment, (name,segment)
++-+
++-+print('UI CALLBACK TESTS PASSED')
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/update.json PPChannelSync-Plugin-2.0.1/update.json
++---- PPChannelSync-Plugin-2.0.0/update.json	2026-07-17 16:49:04.278846701 +0000
++-+++ PPChannelSync-Plugin-2.0.1/update.json	2026-07-17 17:02:31.986673031 +0000
++-@@ -1,13 +1,13 @@
++- {
++--  "version": "2.0.0",
++--  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.0.0_all.ipk",
++--  "sha256": "e4094276917f8c99f4790785a02f63243e25b6446def858c73eb67ca6fc6581e",
++-+  "version": "2.0.1",
++-+  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.0.1_all.ipk",
++-+  "sha256": "9b2d4d1bf8f92204e390002686764737b4e75d0f30fee56428aa8b55a69b9e97",
++-   "notes": [
++--    "Gruntowna przebudowa silnika synchronizacji.",
++--    "Prawdziwy wybór wielu satelitów i osobne przetwarzanie każdej pozycji.",
++--    "Usunięto automatyczne dodawanie i usuwanie kanałów oraz markery w bukietach.",
++--    "Poprawiono natywną obsługę service_type w lamedb5.",
++--    "Dodano naprawę brakujących rekordów lamedb i migrację śladów wersji 1.x.",
++--    "Zachowano kopię bezpieczeństwa, weryfikację zapisu i automatyczny rollback."
++-+    "Naprawiono GSOD po anulowaniu wyboru satelitów.",
++-+    "Wykrywanie satelitów łączy bukiety, lamedb/lamedb5 i konfigurację głowic.",
++-+    "Usunięto błąd pokazywania tylko pierwszej pozycji orbitalnej.",
++-+    "Przywrócono czytelny interfejs i widoczne opisy kolorowych przycisków.",
++-+    "Dodano raport techniczny, ręczną kopię, diagnostykę i paczkę wsparcia ZIP.",
++-+    "Zachowano bezpieczny silnik bez automatycznego dodawania i usuwania kanałów."
++-   ]
++- }
++-diff -ruN '--exclude=packages' '--exclude=release' '--exclude=__pycache__' PPChannelSync-Plugin-2.0.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
++---- PPChannelSync-Plugin-2.0.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 16:46:43.287352107 +0000
++-+++ PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 17:00:39.464284600 +0000
++-@@ -34,7 +34,7 @@
++- from Components.Label import Label
++- from Components.MenuList import MenuList
++- 
++--PLUGIN_VERSION = "2.0.0"
++-+PLUGIN_VERSION = "2.0.1"
++- PLUGIN_NAME = "PP Channel Sync"
++- AUTHOR = "by Paweł Pawełek"
++- CONTACT = "aio-iptv@wp.pl"
++-@@ -48,6 +48,9 @@
++- DETAIL_REPORT_PATH = "/tmp/ppchannelsync_details.txt"
++- ERROR_PATH = "/tmp/ppchannelsync_error.txt"
++- UPDATE_INFO_PATH = "/tmp/ppchannelsync_update_info.txt"
++-+DIAGNOSTIC_PATH = "/tmp/ppchannelsync_diagnostics.txt"
++-+SUPPORT_ZIP_PATH = "/tmp/ppchannelsync_support.zip"
++-+HISTORY_PATH = "/etc/enigma2/ppchannelsync2_history.log"
++- UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/update.json"
++- BACKUP_KEEP = 10
++- MAX_DOWNLOAD_BYTES = 128 * 1024 * 1024
++-@@ -96,6 +99,13 @@
++-     "Anuluj": "Cancel",
++-     "Wybór satelitów": "Satellite selection",
++-     "Brak wykrytych satelitów w lokalnej liście.": "No satellites were detected in the local list.",
++-+    "Sprawdź listę": "Check channel list",
++-+    "Pokaż raport techniczny": "Show technical report",
++-+    "Utwórz kopię bezpieczeństwa": "Create backup",
++-+    "Diagnostyka systemu": "System diagnostics",
++-+    "Przygotuj raport do wysłania": "Create support report",
++-+    "Wesprzyj": "Support",
++-+    "Pomóż rozwijać\nlokalne projekty": "Help develop\nlocal projects",
++-     "Nie wybrano żadnej satelity.": "No satellite was selected.",
++-     "Wybierz pozycje orbitalne, które mają zostać sprawdzone. OK zaznacza lub odznacza pozycję.": "Select orbital positions to check. OK toggles a position.",
++-     "Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.": "The plugin updates only existing DVB-S entries in your bouquets. It does not add channels, remove channels, rename bouquets or add markers.",
++-@@ -619,27 +629,82 @@
++-     return lines, entries
++- 
++- 
++-+def configured_positions_from_settings(path=None):
++-+    """Read orbital positions configured on tuner inputs.
++-+
++-+    Enigma2 images use several key layouts (simple DiSEqC and advanced mode),
++-+    so values are collected only from keys which are known to contain a
++-+    satellite orbital position. This avoids showing frequencies and LNB data.
++-+    """
++-+    path = path or os.path.join(E2_PATH, "settings")
++-+    found = set()
++-+    if not os.path.isfile(path):
++-+        return []
++-+    try:
++-+        lines = read_text(path).splitlines()
++-+    except Exception:
++-+        return []
++-+    for line in lines:
++-+        if not line.startswith("config.Nims.") or "=" not in line:
++-+            continue
++-+        key, value = line.split("=", 1)
++-+        low = key.lower()
++-+        # Advanced tuner configuration stores the position in the key.
++-+        for match in re.findall(r"\.advanced\.sat\.(\d+)(?:\.|$)", low):
++-+            try:
++-+                pos = int(match)
++-+                if 0 < pos <= 3600:
++-+                    found.add(pos)
++-+            except Exception:
++-+                pass
++-+        # Simple DiSEqC and rotor images store it in the value.
++-+        relevant = (
++-+            re.search(r"\.diseqc[a-d]$", low) or
++-+            low.endswith(".satpos") or
++-+            low.endswith(".lastrotorposition") or
++-+            low.endswith(".lastsatrotorposition") or
++-+            low.endswith(".advanced.sats") or
++-+            low.endswith(".satellites")
++-+        )
++-+        if not relevant:
++-+            continue
++-+        for token in re.findall(r"\d+", value):
++-+            try:
++-+                pos = int(token)
++-+                if 0 < pos <= 3600:
++-+                    found.add(pos)
++-+            except Exception:
++-+                pass
++-+    return sorted(found)
++-+
++-+
++- def detect_positions():
++-+    """Return every useful orbital position, not only the first bouquet hit.
++-+
++-+    Sources are merged: services used by bouquets, all valid local lamedb
++-+    records and tuner input configuration. The old 2.0.0 implementation
++-+    returned early as soon as one bouquet position was found, which hid the
++-+    remaining configured satellites.
++-+    """
++-     databases = valid_local_databases()
++--    if not databases:
++--        return []
++-     used = set()
++--    for path in bouquet_files():
++--        try:
++--            _lines, entries = parse_bouquet(path, databases)
++--            for entry in entries:
++--                if entry.get("orbit"):
++--                    used.add(entry["orbit"])
++--        except Exception:
++--            pass
++--    if used:
++--        return sorted(used)
++--    all_positions = set()
++--    for db in databases:
++--        for pos in db.get("service_orbits", {}).values():
++--            if pos:
++--                all_positions.add(pos)
++--    return sorted(all_positions)
++-+    local = set()
++-+    if databases:
++-+        for path in bouquet_files():
++-+            try:
++-+                _lines, entries = parse_bouquet(path, databases)
++-+                for entry in entries:
++-+                    pos = entry.get("orbit")
++-+                    if pos:
++-+                        used.add(pos)
++-+            except Exception:
++-+                pass
++-+        for db in databases:
++-+            for pos in db.get("service_orbits", {}).values():
++-+                if pos:
++-+                    local.add(pos)
++-+    configured = set(configured_positions_from_settings())
++-+    return sorted(used.union(local).union(configured))
++- 
++- 
++- def download_bytes(url, headers=None, max_bytes=MAX_DOWNLOAD_BYTES):
++-@@ -1366,18 +1431,94 @@
++-     raise Exception("Instalacja IPK nie powiodła się.\n" + "\n".join(errors))
++- 
++- 
++-+def append_history(text):
++-+    try:
++-+        ensure_dir(os.path.dirname(HISTORY_PATH))
++-+        line = "%s | v%s | %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), PLUGIN_VERSION, str(text).replace("\n", " ")[:500])
++-+        with open(HISTORY_PATH, "ab") as handle:
++-+            handle.write(line.encode("utf-8", "ignore"))
++-+    except Exception:
++-+        pass
++-+
++-+
++-+def create_diagnostics(selected_positions=None):
++-+    lines = [
++-+        "PP Channel Sync v%s - diagnostyka" % PLUGIN_VERSION,
++-+        "Data: %s" % time.strftime("%Y-%m-%d %H:%M:%S"),
++-+        "Autor: %s" % AUTHOR,
++-+        "",
++-+    ]
++-+    try:
++-+        import sys
++-+        lines.append("Python: %s" % sys.version.replace("\n", " "))
++-+    except Exception:
++-+        pass
++-+    configured = configured_positions_from_settings()
++-+    detected = detect_positions()
++-+    lines.append("Satelity skonfigurowane w głowicach: %s" % (", ".join([orbital_label(x) for x in configured]) or "brak/nie wykryto"))
++-+    lines.append("Satelity wykryte w liście i lamedb: %s" % (", ".join([orbital_label(x) for x in detected]) or "brak"))
++-+    lines.append("Satelity zaznaczone we wtyczce: %s" % (", ".join([orbital_label(x) for x in sorted(selected_positions or [])]) or "brak"))
++-+    lines.append("")
++-+    databases = valid_local_databases()
++-+    if not databases:
++-+        lines.append("Baza kanałów: BRAK poprawnego lamedb/lamedb5")
++-+    for db in databases:
++-+        lines.append("Baza: %s | format /%s/ | usługi: %d | transpondery: %d" % (
++-+            db.get("path"), db.get("format"), len(db.get("services") or {}), len(db.get("transponders") or {})
++-+        ))
++-+    bfiles = bouquet_files()
++-+    lines.append("Bukiety TV: %d" % len(bfiles))
++-+    sat_entries = 0
++-+    per_position = {}
++-+    for path in bfiles:
++-+        try:
++-+            _raw, entries = parse_bouquet(path, databases)
++-+            sat_entries += len(entries)
++-+            for entry in entries:
++-+                pos = entry.get("orbit")
++-+                if pos:
++-+                    per_position[pos] = per_position.get(pos, 0) + 1
++-+        except Exception as exc:
++-+            lines.append("Błąd odczytu %s: %s" % (os.path.basename(path), str(exc)))
++-+    lines.append("Pozycje DVB-S w bukietach: %d" % sat_entries)
++-+    for pos in sorted(per_position):
++-+        lines.append("- %s: %d" % (orbital_label(pos), per_position[pos]))
++-+    lines.append("")
++-+    lines.append("Ostatni raport: %s" % ("jest" if os.path.isfile(REPORT_PATH) else "brak"))
++-+    lines.append("Ostatni błąd: %s" % ("jest" if os.path.isfile(ERROR_PATH) else "brak"))
++-+    atomic_write(DIAGNOSTIC_PATH, "\n".join(lines) + "\n")
++-+    return "\n".join(lines)
++-+
++-+
++-+def create_support_zip(selected_positions=None):
++-+    create_diagnostics(selected_positions)
++-+    try:
++-+        if os.path.isfile(SUPPORT_ZIP_PATH):
++-+            os.unlink(SUPPORT_ZIP_PATH)
++-+    except Exception:
++-+        pass
++-+    with zipfile.ZipFile(SUPPORT_ZIP_PATH, "w", zipfile.ZIP_DEFLATED) as archive:
++-+        for path in (DIAGNOSTIC_PATH, REPORT_PATH, DETAIL_REPORT_PATH, ERROR_PATH, UPDATE_INFO_PATH, HISTORY_PATH):
++-+            if os.path.isfile(path):
++-+                archive.write(path, os.path.basename(path))
++-+    return SUPPORT_ZIP_PATH
++-+
++-+
++- class SatelliteSelectScreen(Screen):
++-     skin = """
++--    <screen name="SatelliteSelectScreen" position="center,center" size="1000,620" title="PP Channel Sync - satelity">
++--        <eLabel position="0,0" size="1000,620" backgroundColor="#0b1520" zPosition="-3" />
++--        <eLabel position="14,14" size="972,70" backgroundColor="#16456b" zPosition="-2" />
++--        <widget name="title" position="35,27" size="700,42" font="Regular;34" foregroundColor="#ffffff" backgroundColor="#16456b" transparent="1" />
++--        <widget name="help" position="35,98" size="930,60" font="Regular;23" foregroundColor="#dddddd" backgroundColor="#0b1520" transparent="1" />
++--        <widget name="menu" position="35,170" size="930,340" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" />
++--        <eLabel position="35,540" size="285,48" backgroundColor="#421010" />
++--        <eLabel position="350,540" size="285,48" backgroundColor="#0d3818" />
++--        <widget name="key_red" position="55,550" size="250,28" font="Regular;23" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" />
++--        <widget name="key_green" position="370,550" size="250,28" font="Regular;23" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" />
++-+    <screen name="SatelliteSelectScreen" position="center,center" size="1050,650" title="PP Channel Sync - satelity">
++-+        <eLabel position="0,0" size="1050,650" backgroundColor="#08111b" zPosition="-5" />
++-+        <eLabel position="10,10" size="1030,630" backgroundColor="#101c29" zPosition="-4" />
++-+        <eLabel position="18,18" size="1014,70" backgroundColor="#123a5a" zPosition="-3" />
++-+        <eLabel position="38,170" size="974,340" backgroundColor="#071016" zPosition="-3" />
++-+        <widget name="title" position="42,31" size="760,40" font="Regular;34" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
++-+        <widget name="help" position="42,102" size="960,56" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#101c29" transparent="1" zPosition="5" />
++-+        <widget name="menu" position="52,180" size="944,315" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" zPosition="5" />
++-+        <widget name="hint" position="42,522" size="950,35" font="Regular;21" foregroundColor="#b8b8b8" backgroundColor="#101c29" transparent="1" zPosition="5" />
++-+        <eLabel position="42,580" size="290,46" backgroundColor="#421010" zPosition="-1" />
++-+        <eLabel position="360,580" size="290,46" backgroundColor="#0d3818" zPosition="-1" />
++-+        <widget name="key_red" position="60,590" size="255,28" font="Regular;22" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" zPosition="5" />
++-+        <widget name="key_green" position="378,590" size="255,28" font="Regular;22" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" zPosition="5" />
++-     </screen>
++-     """
++- 
++-@@ -1387,6 +1528,7 @@
++-         self.selected = set(selected or [])
++-         self["title"] = Label(_("Wybór satelitów"))
++-         self["help"] = Label(_("Wybierz pozycje orbitalne, które mają zostać sprawdzone. OK zaznacza lub odznacza pozycję."))
++-+        self["hint"] = Label("Pozycje pochodzą z bukietów, lamedb oraz konfiguracji głowic tunera.")
++-         self["key_red"] = Label(_("Anuluj"))
++-         self["key_green"] = Label(_("Zapisz"))
++-         self["menu"] = MenuList([])
++-@@ -1398,8 +1540,8 @@
++-             pass
++-         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
++-             "ok": self.toggle,
++--            "cancel": self.close,
++--            "red": self.close,
++-+            "cancel": self.cancel,
++-+            "red": self.cancel,
++-             "green": self.save,
++-         }, -1)
++-         self.refresh()
++-@@ -1428,6 +1570,11 @@
++-         except Exception:
++-             pass
++- 
++-+    def cancel(self):
++-+        # openWithCallback must always receive one value; closing without it
++-+        # caused the GSOD in 2.0.0 on OpenATV 8.
++-+        self.close(None)
++-+
++-     def save(self):
++-         if not self.selected:
++-             self.session.open(MessageBox, _("Nie wybrano żadnej satelity."), type=MessageBox.TYPE_ERROR)
++-@@ -1439,26 +1586,31 @@
++-     skin = """
++-     <screen name="PPChannelSyncScreen" position="center,center" size="1280,720" title="PP Channel Sync">
++-         <eLabel position="0,0" size="1280,720" backgroundColor="#08111b" zPosition="-5" />
++--        <eLabel position="12,12" size="1256,696" backgroundColor="#101c29" zPosition="-4" />
++--        <eLabel position="20,20" size="1240,72" backgroundColor="#123a5a" zPosition="-3" />
++--        <eLabel position="38,130" size="760,400" backgroundColor="#071016" zPosition="-3" />
++--        <eLabel position="820,130" size="410,400" backgroundColor="#0c1725" zPosition="-3" />
++--        <widget name="title" position="42,34" size="700,42" font="Regular;35" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" />
++--        <widget name="version" position="990,34" size="220,38" font="Regular;29" halign="right" foregroundColor="#ffffff" backgroundColor="#123a5a" transparent="1" />
++--        <widget name="status" position="40,98" size="1170,28" font="Regular;22" foregroundColor="#ffffff" backgroundColor="#101c29" transparent="1" />
++--        <widget name="menu" position="52,145" size="730,365" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" />
++--        <widget name="side_title" position="842,150" size="360,34" font="Regular;28" foregroundColor="#00c8ff" backgroundColor="#0c1725" transparent="1" />
++--        <widget name="side_info" position="842,198" size="360,250" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#0c1725" transparent="1" />
++--        <ePixmap position="1050,365" size="130,130" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/qr.png" alphatest="on" />
++--        <widget name="footer" position="38,555" size="1190,34" font="Regular;21" foregroundColor="#cccccc" backgroundColor="#101c29" transparent="1" />
++--        <eLabel position="38,630" size="250,46" backgroundColor="#421010" />
++--        <eLabel position="306,630" size="250,46" backgroundColor="#0d3818" />
++--        <eLabel position="574,630" size="250,46" backgroundColor="#4b3d08" />
++--        <eLabel position="842,630" size="250,46" backgroundColor="#0e2c5f" />
++--        <widget name="key_red" position="55,640" size="220,28" font="Regular;22" foregroundColor="#ff4545" backgroundColor="#421010" transparent="1" />
++--        <widget name="key_green" position="323,640" size="220,28" font="Regular;22" foregroundColor="#42ff70" backgroundColor="#0d3818" transparent="1" />
++--        <widget name="key_yellow" position="591,640" size="220,28" font="Regular;22" foregroundColor="#ffe34a" backgroundColor="#4b3d08" transparent="1" />
++--        <widget name="key_blue" position="859,640" size="220,28" font="Regular;22" foregroundColor="#5aa2ff" backgroundColor="#0e2c5f" transparent="1" />
++-+        <eLabel position="10,10" size="1260,700" backgroundColor="#0f1a27" zPosition="-4" />
++-+        <eLabel position="18,18" size="1244,684" backgroundColor="#121d2b" zPosition="-3" />
++-+        <eLabel position="18,18" size="1244,74" backgroundColor="#123a5a" zPosition="-2" />
++-+        <eLabel position="38,130" size="755,392" backgroundColor="#071016" zPosition="-2" />
++-+        <eLabel position="812,130" size="420,392" backgroundColor="#0c1725" zPosition="-2" />
++-+        <eLabel position="38,550" size="1194,2" backgroundColor="#24618f" zPosition="-1" />
++-+        <widget name="title" position="38,28" size="720,42" font="Regular;35" foregroundColor="#00c8ff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
++-+        <widget name="version" position="940,30" size="290,36" halign="right" font="Regular;28" foregroundColor="#ffffff" backgroundColor="#123a5a" transparent="1" zPosition="5" />
++-+        <widget name="status" position="38,94" size="1190,30" font="Regular;22" foregroundColor="#ffffff" backgroundColor="#121d2b" transparent="1" zPosition="5" />
++-+        <widget name="menu" position="52,142" size="720,365" scrollbarMode="showOnDemand" foregroundColor="#ffffff" foregroundColorSelected="#ffffff" backgroundColor="#071016" backgroundColorSelected="#1f5f95" transparent="0" zPosition="5" />
++-+        <widget name="side_title" position="832,146" size="375,34" font="Regular;27" foregroundColor="#00c8ff" backgroundColor="#0c1725" transparent="1" zPosition="5" />
++-+        <widget name="side_info" position="832,192" size="370,145" font="Regular;22" foregroundColor="#eeeeee" backgroundColor="#0c1725" transparent="1" zPosition="5" />
++-+        <widget name="support_title" position="832,354" size="175,28" font="Regular;23" foregroundColor="#ffe34a" backgroundColor="#0c1725" transparent="1" zPosition="5" />
++-+        <widget name="support_text" position="832,388" size="190,75" font="Regular;18" foregroundColor="#dddddd" backgroundColor="#0c1725" transparent="1" zPosition="5" />
++-+        <ePixmap position="1040,348" size="150,150" pixmap="/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/qr.png" alphatest="on" zPosition="6" />
++-+        <widget name="help" position="38,560" size="1190,30" font="Regular;21" foregroundColor="#dddddd" backgroundColor="#121d2b" transparent="1" zPosition="5" />
++-+        <widget name="footer" position="38,596" size="1190,30" font="Regular;20" foregroundColor="#b8b8b8" backgroundColor="#121d2b" transparent="1" zPosition="5" />
++-+        <eLabel position="38,640" size="250,44" backgroundColor="#421010" zPosition="-1" />
++-+        <eLabel position="302,640" size="250,44" backgroundColor="#0d3818" zPosition="-1" />
++-+        <eLabel position="566,640" size="250,44" backgroundColor="#4b3d08" zPosition="-1" />
++-+        <eLabel position="830,640" size="250,44" backgroundColor="#0e2c5f" zPosition="-1" />
++-+        <widget name="key_red" position="52,649" size="225,28" font="Regular;22" foregroundColor="#ff3030" backgroundColor="#421010" transparent="1" zPosition="5" />
++-+        <widget name="key_green" position="316,649" size="225,28" font="Regular;22" foregroundColor="#25ff61" backgroundColor="#0d3818" transparent="1" zPosition="5" />
++-+        <widget name="key_yellow" position="580,649" size="225,28" font="Regular;22" foregroundColor="#ffe34a" backgroundColor="#4b3d08" transparent="1" zPosition="5" />
++-+        <widget name="key_blue" position="844,649" size="225,28" font="Regular;22" foregroundColor="#5aa2ff" backgroundColor="#0e2c5f" transparent="1" zPosition="5" />
++-     </screen>
++-     """
++- 
++-@@ -1467,27 +1619,35 @@
++-         self.session = session
++-         settings = load_settings()
++-         detected = detect_positions()
++--        self.positions = settings.get("positions") or detected
++-+        saved = settings.get("positions") or []
++-+        self.positions = sorted(set(saved if saved else detected))
++-         self.mode = settings.get("mode", MODE_SYNC)
++-         self["title"] = Label("PP Channel Sync")
++-+        try:
++-+            self.setTitle("PP Channel Sync v%s" % PLUGIN_VERSION)
++-+        except Exception:
++-+            pass
++-         self["version"] = Label("v%s" % PLUGIN_VERSION)
++--        self["status"] = Label("OK - opcja | Zielony - start | Żółty - satelity | Niebieski - przywróć")
++-+        self["status"] = Label("OK - opcja | Zielony - start | Żółty - wybór satelitów | Niebieski - przywróć")
++-         self["side_title"] = Label(_("Informacje"))
++-         self["side_info"] = Label("")
++--        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3" % (AUTHOR, CONTACT))
++--        self["key_red"] = Label(_("Wyjście"))
++--        self["key_green"] = Label(_("Start"))
++--        self["key_yellow"] = Label(_("Satelity"))
++--        self["key_blue"] = Label(_("Przywróć"))
++-+        self["support_title"] = Label(_("Wesprzyj"))
++-+        self["support_text"] = Label(_("Pomóż rozwijać\nlokalne projekty"))
++-+        self["help"] = Label("OK - funkcja  |  LEWO/PRAWO - zmiana trybu  |  MENU - raport  |  EXIT - wyjście")
++-+        self["footer"] = Label("%s  •  %s  •  Enigma2 Python 2/3  •  FB: Enigma 2 Oprogramowanie, dodatki" % (AUTHOR, CONTACT))
++-+        self["key_red"] = Label("Czerwony: wyjście")
++-+        self["key_green"] = Label("Zielony: uruchom")
++-+        self["key_yellow"] = Label("Żółty: satelity")
++-+        self["key_blue"] = Label("Niebieski: przywróć")
++-         self["menu"] = MenuList([])
++-         try:
++-             from enigma import gFont
++--            self["menu"].l.setFont(0, gFont("Regular", 26))
++--            self["menu"].l.setItemHeight(42)
++-+            self["menu"].l.setFont(0, gFont("Regular", 25))
++-+            self["menu"].l.setItemHeight(38)
++-             self["menu"].onSelectionChanged.append(self.update_info)
++-         except Exception:
++-             pass
++--        self["actions"] = ActionMap(["OkCancelActions", "ColorActions", "DirectionActions"], {
++-+        self["actions"] = ActionMap(["OkCancelActions", "ColorActions", "DirectionActions", "MenuActions"], {
++-             "ok": self.ok,
++-             "cancel": self.close,
++-             "red": self.close,
++-@@ -1496,20 +1656,28 @@
++-             "blue": self.restore_last,
++-             "left": self.left_right,
++-             "right": self.left_right,
++-+            "menu": self.show_report,
++-+            "up": self.up,
++-+            "down": self.down,
++-         }, -1)
++-         self.refresh()
++- 
++-     def menu_data(self):
++-         sats = ", ".join([orbital_label(x) for x in sorted(self.positions)]) if self.positions else "brak"
++-         return [
++--            ("satellites", "%s: %s" % (_("Wybrane satelity"), sats), "Wybór wielu pozycji orbitalnych. Synchronizacja wykonuje pełną pętlę dla każdej zaznaczonej satelity."),
++--            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport niczego nie zapisuje. Bezpieczna korekta zmienia wyłącznie istniejące service reference i brakujące rekordy lamedb."),
++-+            ("satellites", "%s: %s" % (_("Wybrane satelity"), sats), "Wybierz dowolną liczbę pozycji orbitalnych. Lista jest budowana z bukietów, lamedb oraz konfiguracji głowic."),
++-+            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport nie zapisuje zmian. Bezpieczna korekta zmienia tylko istniejące wpisy DVB-S i brakujące rekordy techniczne."),
++-+            ("check", _("Sprawdź listę"), "Pobiera bazę kontrolną i tworzy raport dla wszystkich zaznaczonych satelitów bez modyfikacji listy."),
++-             ("run", _("Uruchom synchronizację"), _("Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.")),
++--            ("cleanup", _("Napraw ślady wersji 1.x"), "Usuwa wyłącznie bloki 'nowe kanały - PP Channel Sync', stary bukiet nowych kanałów i podpisy dodane przez wersje 1.x. Najpierw wykonywana jest kopia."),
++--            ("report", _("Pokaż ostatni raport"), "Pokazuje wynik ostatniego sprawdzenia lub korekty."),
++--            ("restore", _("Przywróć ostatnią kopię"), "Przywraca lamedb, lamedb5 i bukiety z ostatniej kopii wykonanej przez wtyczkę."),
++-+            ("cleanup", _("Napraw ślady wersji 1.x"), "Usuwa wyłącznie rozpoznawalne bloki i błędne dopiski utworzone przez wersje 1.x. Przed operacją wykonywana jest kopia."),
++-+            ("report", _("Pokaż ostatni raport"), "Pokazuje czytelne podsumowanie ostatniego sprawdzenia lub korekty."),
++-+            ("details", _("Pokaż raport techniczny"), "Pokazuje szczegóły: zmienione reference, brakujące rekordy i wynik osobno dla każdej satelity."),
++-+            ("backup", _("Utwórz kopię bezpieczeństwa"), "Tworzy natychmiastową kopię lamedb, lamedb5 oraz wszystkich bukietów TV i radio."),
++-+            ("restore", _("Przywróć ostatnią kopię"), "Przywraca ostatnią kompletną kopię wykonaną przez PP Channel Sync."),
++-+            ("diagnostics", _("Diagnostyka systemu"), "Sprawdza wykryte satelity, format bazy kanałów, liczbę usług i bukietów bez zmieniania listy."),
++-+            ("support", _("Przygotuj raport do wysłania"), "Tworzy archiwum ZIP z raportami i diagnostyką w /tmp/ppchannelsync_support.zip."),
++-             ("update", _("Aktualizuj wtyczkę z GitHub"), "Sprawdza update.json, pobiera IPK, kontroluje SHA256 i instaluje nowszą wersję."),
++--            ("info", _("Informacje"), "PP Channel Sync 2.x jest przebudowany od podstaw. Nie zawiera automatycznych harmonogramów, kreatorów, zmiany nazw, duplikatów ani automatycznego dodawania/usuwania kanałów."),
++-+            ("info", _("Informacje"), "Bezpieczny rdzeń wielosatelitarny: brak automatycznego dodawania i usuwania kanałów, kopia oraz rollback przy błędzie."),
++-         ]
++- 
++-     def refresh(self):
++-@@ -1518,6 +1686,20 @@
++-         self.update_info()
++-         save_settings(self.mode, self.positions)
++- 
++-+    def up(self):
++-+        try:
++-+            self["menu"].up()
++-+        except Exception:
++-+            pass
++-+        self.update_info()
++-+
++-+    def down(self):
++-+        try:
++-+            self["menu"].down()
++-+        except Exception:
++-+            pass
++-+        self.update_info()
++-+
++-     def current_index(self):
++-         try:
++-             return self["menu"].getCurrentIndex()
++-@@ -1531,8 +1713,12 @@
++-         return self._items[idx]
++- 
++-     def update_info(self):
++--        item = self.current()
++--        self["side_info"].setText(item[2])
++-+        try:
++-+            item = self.current()
++-+            self["side_title"].setText("Opis opcji")
++-+            self["side_info"].setText(item[2])
++-+        except Exception:
++-+            pass
++- 
++-     def left_right(self):
++-         if self.current()[0] == "mode":
++-@@ -1545,21 +1731,38 @@
++-             self.select_satellites()
++-         elif action == "mode":
++-             self.left_right()
++-+        elif action == "check":
++-+            self.run_report()
++-         elif action == "run":
++-             self.run_sync()
++-         elif action == "cleanup":
++-             self.cleanup_legacy()
++-         elif action == "report":
++-             self.show_report()
++-+        elif action == "details":
++-+            self.show_details()
++-+        elif action == "backup":
++-+            self.backup_now()
++-         elif action == "restore":
++-             self.restore_last()
++-+        elif action == "diagnostics":
++-+            self.show_diagnostics()
++-+        elif action == "support":
++-+            self.make_support_zip()
++-         elif action == "update":
++-             self.check_update()
++-         elif action == "info":
++-             self.show_info()
++- 
++-     def popup(self, text, kind=MessageBox.TYPE_INFO):
++--        self.session.open(MessageBox, text, type=kind)
++-+        try:
++-+            self.session.open(MessageBox, text, type=kind)
++-+        except Exception:
++-+            try:
++-+                atomic_write(ERROR_PATH, str(text) + "\n")
++-+                self["status"].setText(str(text).replace("\n", " ")[:140])
++-+            except Exception:
++-+                pass
++- 
++-     def select_satellites(self):
++-         detected = detect_positions()
++-@@ -1569,28 +1772,39 @@
++-             return
++-         self.session.openWithCallback(self.satellites_selected, SatelliteSelectScreen, positions, self.positions)
++- 
++--    def satellites_selected(self, selected):
++--        if selected:
++-+    def satellites_selected(self, selected=None):
++-+        # selected=None means the selector was cancelled. The optional argument
++-+        # is required because some Enigma2 images call callbacks without a value.
++-+        if selected is not None:
++-             self.positions = list(selected)
++-             self.refresh()
++- 
++-+    def run_report(self):
++-+        self._run_with_mode(MODE_REPORT)
++-+
++-     def run_sync(self):
++-+        self._run_with_mode(self.mode)
++-+
++-+    def _run_with_mode(self, requested_mode):
++-         if not self.positions:
++-             self.popup(_("Nie wybrano żadnej satelity."), MessageBox.TYPE_ERROR)
++-             return
++-         clean = bool(legacy_artifacts())
++--        question = "Uruchomić %s dla: %s?" % (_(MODE_LABELS[self.mode]), ", ".join([orbital_label(x) for x in sorted(self.positions)]))
++--        if clean and self.mode == MODE_SYNC:
++-+        question = "Uruchomić %s dla: %s?" % (_(MODE_LABELS[requested_mode]), ", ".join([orbital_label(x) for x in sorted(self.positions)]))
++-+        if clean and requested_mode == MODE_SYNC:
++-             question += "\n\nWykryto ślady wersji 1.x. Zostaną usunięte z kopią bezpieczeństwa przed korektą."
++--        self.session.openWithCallback(lambda answer: self._run_confirmed(answer, clean), MessageBox, question, type=MessageBox.TYPE_YESNO, default=True)
++-+        self.session.openWithCallback(lambda answer=None: self._run_confirmed(answer, clean, requested_mode), MessageBox, question, type=MessageBox.TYPE_YESNO, default=True)
++- 
++--    def _run_confirmed(self, answer, clean):
++-+    def _run_confirmed(self, answer=None, clean=False, requested_mode=MODE_REPORT):
++-         if not answer:
++-             return
++-         try:
++--            self["status"].setText("Pobieranie bazy i analiza listy...")
++--            summary, _plan = execute_sync(self.positions, self.mode, clean_legacy=clean and self.mode == MODE_SYNC)
++-+            self["status"].setText("Pobieranie bazy i analiza wszystkich wybranych satelitów...")
++-+            summary, plan = execute_sync(self.positions, requested_mode, clean_legacy=clean and requested_mode == MODE_SYNC)
++-             self["status"].setText("Zakończono. Raport: %s" % REPORT_PATH)
++-+            append_history("%s | satelity %s | sprawdzone %d | zmiany %d" % (
++-+                MODE_LABELS[requested_mode], ",".join([orbital_label(x) for x in sorted(self.positions)]), plan.get("checked", 0), len(plan.get("ref_changes", []))
++-+            ))
++-             self.popup(summary)
++-         except Exception as exc:
++-             try:
++-@@ -1607,13 +1821,14 @@
++-             return
++-         self.session.openWithCallback(self._cleanup_confirmed, MessageBox, "Usunąć ślady wersji 1.x?\n\nZostanie wykonana kopia bezpieczeństwa. Usuwane są tylko rozpoznawalne bloki PP Channel Sync.", type=MessageBox.TYPE_YESNO, default=False)
++- 
++--    def _cleanup_confirmed(self, answer):
++-+    def _cleanup_confirmed(self, answer=None):
++-         if not answer:
++-             return
++-         backup = make_backup()
++-         try:
++-             changed, removed = remove_legacy_artifacts()
++-             reload_bouquets()
++-+            append_history("naprawa śladów 1.x | pliki %d | linie %d" % (changed, removed))
++-             self.popup("Naprawa zakończona.\n\nZmienione pliki: %d\nUsunięte linie: %d\nKopia: %s" % (changed, removed, backup))
++-         except Exception as exc:
++-             restore_backup(backup)
++-@@ -1623,24 +1838,61 @@
++-         if not os.path.isfile(REPORT_PATH):
++-             self.popup("Brak raportu.")
++-             return
++--        self.popup(read_text(REPORT_PATH))
++-+        text = read_text(REPORT_PATH)
++-+        if len(text) > 5600:
++-+            text = text[:5600] + "\n\n...\nPełny raport: %s" % REPORT_PATH
++-+        self.popup(text)
++-+
++-+    def show_details(self):
++-+        if not os.path.isfile(DETAIL_REPORT_PATH):
++-+            self.popup("Brak raportu technicznego.")
++-+            return
++-+        text = read_text(DETAIL_REPORT_PATH)
++-+        if len(text) > 5600:
++-+            text = text[:5600] + "\n\n...\nPełny raport: %s" % DETAIL_REPORT_PATH
++-+        self.popup(text)
++-+
++-+    def backup_now(self):
++-+        try:
++-+            path = make_backup()
++-+            append_history("ręczna kopia | %s" % path)
++-+            self.popup("Kopia bezpieczeństwa została utworzona:\n%s" % path)
++-+        except Exception as exc:
++-+            self.popup("Nie udało się utworzyć kopii:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++- 
++-     def restore_last(self):
++-         path = latest_backup()
++-         if not path:
++-             self.popup("Brak kopii bezpieczeństwa.", MessageBox.TYPE_ERROR)
++-             return
++--        self.session.openWithCallback(lambda answer: self._restore_confirmed(answer, path), MessageBox, "Przywrócić ostatnią kopię?\n\n%s" % path, type=MessageBox.TYPE_YESNO, default=False)
++-+        self.session.openWithCallback(lambda answer=None: self._restore_confirmed(answer, path), MessageBox, "Przywrócić ostatnią kopię?\n\n%s" % path, type=MessageBox.TYPE_YESNO, default=False)
++- 
++--    def _restore_confirmed(self, answer, path):
++-+    def _restore_confirmed(self, answer=None, path=None):
++-         if not answer:
++-             return
++-         try:
++-             restore_backup(path)
++-+            append_history("przywrócono kopię | %s" % path)
++-             self.popup("Przywrócono kopię:\n%s" % path)
++-         except Exception as exc:
++-             self.popup("Nie udało się przywrócić kopii:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++- 
++-+    def show_diagnostics(self):
++-+        try:
++-+            text = create_diagnostics(self.positions)
++-+            if len(text) > 5600:
++-+                text = text[:5600] + "\n\n...\nPełna diagnostyka: %s" % DIAGNOSTIC_PATH
++-+            self.popup(text)
++-+        except Exception as exc:
++-+            self.popup("Nie udało się wykonać diagnostyki:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++-+
++-+    def make_support_zip(self):
++-+        try:
++-+            path = create_support_zip(self.positions)
++-+            self.popup("Raport do wysłania został utworzony:\n%s" % path)
++-+        except Exception as exc:
++-+            self.popup("Nie udało się utworzyć raportu ZIP:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++-+
++-     def check_update(self):
++-         try:
++-             manifest = fetch_json(UPDATE_MANIFEST_URL)
++-@@ -1654,11 +1906,11 @@
++-             if isinstance(notes, list):
++-                 notes = "\n".join(["- " + str(x) for x in notes])
++-             text = "Dostępna aktualizacja %s.\n\n%s\n\nPobrać i zainstalować?" % (remote_version, notes[:1400])
++--            self.session.openWithCallback(lambda answer: self._update_confirmed(answer, manifest), MessageBox, text, type=MessageBox.TYPE_YESNO, default=True)
++-+            self.session.openWithCallback(lambda answer=None: self._update_confirmed(answer, manifest), MessageBox, text, type=MessageBox.TYPE_YESNO, default=True)
++-         except Exception as exc:
++-             self.popup("Nie udało się sprawdzić aktualizacji:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++- 
++--    def _update_confirmed(self, answer, manifest):
++-+    def _update_confirmed(self, answer=None, manifest=None):
++-         if not answer:
++-             return
++-         try:
++-@@ -1669,7 +1921,7 @@
++-             self.popup("Nie udało się zainstalować aktualizacji:\n%s" % str(exc), MessageBox.TYPE_ERROR)
++- 
++-     def show_info(self):
++--        text = "PP Channel Sync v%s\n%s\n\n%s\n\nNajważniejsze zasady 2.x:\n- jedna baza wielosatelitarna i filtrowanie po wybranych pozycjach,\n- każda zaznaczona satelita jest przetwarzana osobno,\n- brak automatycznego dodawania i usuwania kanałów,\n- brak markerów, dat i zmian nazw bukietów,\n- poprawiany jest wyłącznie istniejący #SERVICE,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie." % (PLUGIN_VERSION, AUTHOR, _("Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów."))
++-+        text = "PP Channel Sync v%s\n%s\n%s\n\nZasady działania:\n- prawdziwy wybór wielu satelitów,\n- każda zaznaczona pozycja jest analizowana osobno,\n- brak automatycznego dodawania i usuwania kanałów,\n- brak zmian nazw i markerów,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie,\n- raport oraz diagnostyka do wysłania autorowi." % (PLUGIN_VERSION, AUTHOR, CONTACT)
++-         self.popup(text)
++- 
++- 
++-@@ -1680,7 +1932,7 @@
++- def Plugins(**kwargs):
++-     return [PluginDescriptor(
++-         name=PLUGIN_NAME,
++--        description="PP Channel Sync 2.x - safe multi-satellite correction",
++-+        description="PP Channel Sync 2.0.1 - bezpieczna korekta wielu satelitów",
++-         where=PluginDescriptor.WHERE_PLUGINMENU,
++-         icon="plugin.png",
++-         fnc=main,
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_MANIFEST_2.0.1.txt /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_MANIFEST_2.0.1.txt
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_MANIFEST_2.0.1.txt	2026-07-17 17:03:31.277692785 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_MANIFEST_2.0.1.txt	1970-01-01 00:00:00.000000000 +0000
+@@ -1,9 +0,0 @@
+-PP Channel Sync 2.0.1
+-
+-IPK: enigma2-plugin-extensions-ppchannelsync_2.0.1_all.ipk
+-SHA256: 9b2d4d1bf8f92204e390002686764737b4e75d0f30fee56428aa8b55a69b9e97
+-Update manifest: update.json
+-Installer: installer.sh
+-Patch: PPChannelSync-2.0.0-to-2.0.1.patch
+-
+-Najważniejsza naprawa: callback anulowania wyboru satelitów oraz pełne wykrywanie wielu pozycji orbitalnych.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_MANIFEST_2.1.0.txt /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_MANIFEST_2.1.0.txt
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_MANIFEST_2.1.0.txt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_MANIFEST_2.1.0.txt	2026-07-17 17:39:42.014712760 +0000
+@@ -0,0 +1,7 @@
++PP Channel Sync 2.1.0
++
++IPK: enigma2-plugin-extensions-ppchannelsync_2.1.0_all.ipk
++SHA256: 662fb5b88f00d1e8b77a24701979f70d63b57823bd64675d23deff79d37ca7fc
++GitHub update manifest: update.json
++Installer: installer.sh
++Main plugin: usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_NOTES_2.0.1.md /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_NOTES_2.0.1.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_NOTES_2.0.1.md	2026-07-17 17:02:12.724482519 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_NOTES_2.0.1.md	1970-01-01 00:00:00.000000000 +0000
+@@ -1,21 +0,0 @@
+-# PP Channel Sync 2.0.1
+-
+-Wydanie naprawcze po testach wersji 2.0.0.
+-
+-## Naprawiono
+-
+-- GSOD: `PPChannelSyncScreen.satellites_selected() missing 1 required positional argument: selected`;
+-- anulowanie ekranu wyboru satelitów;
+-- pokazywanie tylko pierwszej wykrytej pozycji orbitalnej;
+-- niewidoczne napisy na kolorowych przyciskach;
+-- nieczytelny ekran wyboru wielu satelitów.
+-
+-## Przywrócono
+-
+-- czytelny interfejs w układzie znanym z wcześniejszej wersji;
+-- raport techniczny;
+-- ręczną kopię bezpieczeństwa;
+-- diagnostykę;
+-- paczkę ZIP do zgłoszenia błędu.
+-
+-Rdzeń nadal nie dodaje i nie usuwa kanałów automatycznie.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_NOTES_2.1.0.md /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_NOTES_2.1.0.md
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/RELEASE_NOTES_2.1.0.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/RELEASE_NOTES_2.1.0.md	2026-07-17 17:39:08.690379177 +0000
+@@ -0,0 +1,15 @@
++# PP Channel Sync 2.1.0
++
++Wydanie przywraca dwie funkcje, których brakowało w gałęzi 2.0.x: dopisywanie nowych kanałów na końcu właściwych bukietów oraz aktualizację podpisu i daty w widoku listy bukietów.
++
++## Najważniejsze zmiany
++
++- pobieranie bukietów kontrolnych razem z `lamedb`/`lamedb5`;
++- dopasowanie lokalnych i kontrolnych bukietów po nazwie oraz wspólnych kanałach;
++- obsługa nowych kanałów osobno dla każdej zaznaczonej satelity;
++- jeden blok `nowe kanały - PP Channel Sync` z markerem końcowym;
++- brak duplikatów po kolejnym uruchomieniu;
++- zachowanie kanałów dopisanych wcześniej przez wtyczkę;
++- aktualna data i `@ PP Channel Sync` na dole `bouquets.tv`;
++- brak automatycznego usuwania zwykłych kanałów;
++- kopia i rollback przed każdym zapisem.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/TEST_RESULTS_2.0.1.txt /mnt/data/PPChannelSync-Plugin-2.1.0/release/TEST_RESULTS_2.0.1.txt
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/TEST_RESULTS_2.0.1.txt	2026-07-17 17:03:31.216231053 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/TEST_RESULTS_2.0.1.txt	1970-01-01 00:00:00.000000000 +0000
+@@ -1,20 +0,0 @@
+-PP Channel Sync 2.0.1 - testy lokalne
+-
+-OK: kompilacja Python 3
+-OK: parser lamedb4
+-OK: parser lamedb5
+-OK: service_type 19 pozostaje wartością szesnastkową
+-OK: plan dla 13.0E i 19.2E w jednej operacji
+-OK: osobne statystyki dla obu pozycji
+-OK: wykrywanie pozycji z bukietów
+-OK: wykrywanie pozycji z lamedb
+-OK: wykrywanie pozycji z config.Nims.* w /etc/enigma2/settings
+-OK: callback satellites_selected ma wartość domyślną None
+-OK: SatelliteSelectScreen zamyka anulowanie przez close(None)
+-OK: zapis bukietu nie zmienia liczby linii
+-OK: test kopii i czyszczenia śladów wersji 1.x
+-
+-Ograniczenie: brak fizycznego tunera Enigma2 w środowisku budowania.
+-OK: test rzeczywistego zamknięcia selektora przez close(None)
+-OK: test zapisu wielu zaznaczonych pozycji
+-OK: test warstw zPosition dla wszystkich kolorowych przycisków
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/TEST_RESULTS_2.1.0.txt /mnt/data/PPChannelSync-Plugin-2.1.0/release/TEST_RESULTS_2.1.0.txt
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/TEST_RESULTS_2.1.0.txt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/TEST_RESULTS_2.1.0.txt	2026-07-17 17:39:08.696956903 +0000
+@@ -0,0 +1,16 @@
++PP Channel Sync 2.1.0 - wyniki testów
++
++OK - kompilacja plugin.py w Python 3
++OK - wykrywanie wielu satelitów z bukietów, lamedb i konfiguracji głowic
++OK - osobne planowanie nowych kanałów dla 13.0E i 19.2E
++OK - dopisanie nowych kanałów pod jednym blokiem PP Channel Sync
++OK - brak duplikatów kanałów i markerów po drugim uruchomieniu
++OK - zachowanie kanałów z wcześniejszego bloku wtyczki
++OK - brak duplikatu po ręcznym przeniesieniu kanału nad blok
++OK - aktualizacja daty i podpisu w bouquets.tv
++OK - zapis i ponowny odczyt lamedb /4/ i lamedb5 /5/
++OK - zachowanie typu 19 jako wartości szesnastkowej w lamedb5
++OK - test anulowania selektora satelitów bez GSOD
++OK - kontrola struktury IPK i sumy SHA256
++
++Nie wykonano testu na fizycznym tunerze Enigma2 ani w interpreterze Python 2.7.
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/release/build_ipk.sh /mnt/data/PPChannelSync-Plugin-2.1.0/release/build_ipk.sh
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/release/build_ipk.sh	2026-07-17 17:02:12.746613002 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/release/build_ipk.sh	2026-07-17 17:38:30.610393474 +0000
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ set -eu
+ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+-VERSION="2.0.1"
++VERSION="2.1.0"
+ BUILD="$ROOT/release/build"
+ CONTROL="$BUILD/control"
+ DATA="$BUILD/data"
+@@ -22,7 +22,7 @@
+ Architecture: all
+ Maintainer: by Pawel Pawelek <aio-iptv@wp.pl>
+ Depends: enigma2
+-Description: PP Channel Sync $VERSION - safe multi-satellite correction, lamedb4/lamedb5, backup, diagnostics and rollback, Python 2/3
++Description: PP Channel Sync $VERSION - multi-satellite correction, verified new channels at bouquet ends, lamedb4/lamedb5, backup and rollback, Python 2/3
+ CONTROL
+ 
+ cat > "$CONTROL/postinst" <<'POSTINST'
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/tests/test_core.py /mnt/data/PPChannelSync-Plugin-2.1.0/tests/test_core.py
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/tests/test_core.py	2026-07-17 17:01:02.795887349 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/tests/test_core.py	2026-07-17 17:37:17.564352572 +0000
+@@ -40,25 +40,17 @@
+         f.write(text.encode('utf-8'))
+ 
+ 
+-def lamedb5(local=True):
+-    if local:
+-        return '''eDVB services /5/
+-# test
++def local_lamedb5():
++    return '''eDVB services /5/
++# local
+ t:00820000:1000:0001,s:11000000:27500000:0:3:130:2:0
+ t:00c00000:2000:0001,s:12000000:27500000:0:3:192:2:0
+ s:0100:00820000:1000:0001:19:0:0,"Kanał A",p:Test
+ s:0200:00c00000:2000:0001:1:0:0,"Kanał B",p:Test
+ '''
+-    return '''eDVB services /5/
+-# test
+-t:00820000:1001:0001,s:11100000:27500000:0:3:130:2:0
+-t:00c00000:2001:0001,s:12100000:27500000:0:3:192:2:0
+-s:0101:00820000:1001:0001:19:0:0,"Kanał A",p:Test
+-s:0201:00c00000:2001:0001:1:0:0,"Kanał B",p:Test
+-'''
+ 
+ 
+-def lamedb4_local():
++def local_lamedb4():
+     return '''eDVB services /4/
+ transponders
+ 00820000:1000:0001
+@@ -77,65 +69,132 @@
+ end
+ '''
+ 
++
++def remote_lamedb5():
++    return '''eDVB services /5/
++# remote
++t:00820000:1001:0001,s:11100000:27500000:0:3:130:2:0
++t:00820000:1002:0001,s:11200000:27500000:0:3:130:2:0
++t:00c00000:2001:0001,s:12100000:27500000:0:3:192:2:0
++t:00c00000:2002:0001,s:12200000:27500000:0:3:192:2:0
++s:0101:00820000:1001:0001:19:0:0,"Kanał A",p:Test
++s:0102:00820000:1002:0001:1:0:0,"Nowy 13E",p:Test
++s:0201:00c00000:2001:0001:1:0:0,"Kanał B",p:Test
++s:0202:00c00000:2002:0001:1:0:0,"Nowy 19E",p:Test
++'''
++
++
+ stubs()
+-spec = importlib.util.spec_from_file_location('ppcs2', PLUGIN)
++spec = importlib.util.spec_from_file_location('ppcs210', PLUGIN)
+ p = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(p)
+-assert p.PLUGIN_VERSION == '2.0.1'
+-root = tempfile.mkdtemp(prefix='ppcs2_test_')
++assert p.PLUGIN_VERSION == '2.1.0'
++root = tempfile.mkdtemp(prefix='ppcs210_test_')
+ try:
+     e2 = os.path.join(root,'e2'); os.makedirs(e2)
+-    write(os.path.join(e2,'lamedb5'), lamedb5(True))
+-    write(os.path.join(e2,'lamedb'), lamedb4_local())
+-    write(os.path.join(e2,'bouquets.tv'), '#NAME User - bouquets (TV)\n#SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.test.tv" ORDER BY bouquet\n')
++    remote_root = os.path.join(root,'remote'); os.makedirs(remote_root)
++    write(os.path.join(e2,'lamedb5'), local_lamedb5())
++    write(os.path.join(e2,'lamedb'), local_lamedb4())
++    write(os.path.join(e2,'bouquets.tv'), '''#NAME User - bouquets (TV)
++#SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.test.tv" ORDER BY bouquet
++#DESCRIPTION Test
++#SERVICE 1:64:0:0:0:0:0:0:0:0:
++#DESCRIPTION @ Vhannibal 15.07.2026
++''')
+     write(os.path.join(e2,'userbouquet.test.tv'), '''#NAME Test
+ #SERVICE 1:0:19:100:1000:1:820000:0:0:0:
+ #DESCRIPTION Kanał A
+ #SERVICE 1:0:1:200:2000:1:C00000:0:0:0:
+ #DESCRIPTION Kanał B
+ ''')
+-    remote_path = os.path.join(root,'remote_lamedb5'); write(remote_path, lamedb5(False))
++    remote_path = os.path.join(remote_root,'lamedb5'); write(remote_path, remote_lamedb5())
++    remote_bq = os.path.join(remote_root,'userbouquet.test.tv')
++    write(remote_bq, '''#NAME Test
++#SERVICE 1:0:19:101:1001:1:820000:0:0:0:
++#DESCRIPTION Kanał A
++#SERVICE 1:0:1:102:1002:1:820000:0:0:0:
++#DESCRIPTION Nowy 13E
++#SERVICE 1:0:1:201:2001:1:C00000:0:0:0:
++#DESCRIPTION Kanał B
++#SERVICE 1:0:1:202:2002:1:C00000:0:0:0:
++#DESCRIPTION Nowy 19E
++''')
+     remote_db = p.parse_lamedb(remote_path)
+-    assert remote_db['valid'] and len(remote_db['services']) == 2
+-    # Critical regression: lamedb5 type 19 is hexadecimal, not decimal 19 -> 13.
++    assert remote_db['valid'] and len(remote_db['services']) == 4
+     assert ('19','101','1001','1','820000') in remote_db['services']
+ 
+-    p.E2_PATH=e2; p.BACKUP_DIR=os.path.join(root,'backups'); p.REPORT_PATH=os.path.join(root,'report.txt'); p.DETAIL_REPORT_PATH=os.path.join(root,'details.txt')
++    p.E2_PATH=e2
++    p.BACKUP_DIR=os.path.join(root,'backups')
++    p.REPORT_PATH=os.path.join(root,'report.txt')
++    p.DETAIL_REPORT_PATH=os.path.join(root,'details.txt')
+ 
+-    # Satellite detection must merge bouquets, lamedb and tuner configuration.
+     write(os.path.join(e2,'settings'), 'config.Nims.0.configMode=simple\nconfig.Nims.0.diseqcA=130\nconfig.Nims.0.diseqcB=192\nconfig.Nims.1.configMode=advanced\nconfig.Nims.1.advanced.sat.235.lnb=1\n')
+     positions=p.detect_positions()
+     assert 130 in positions and 192 in positions and 235 in positions, positions
+-
+-    # The callback must accept cancellation without a returned value.
+     assert p.PPChannelSyncScreen.satellites_selected.__defaults__ == (None,)
+-    remote={'label':'fixture','db':remote_db,'positions':set([130,192])}
++
++    remote={'label':'fixture','db':remote_db,'positions':set([130,192]),'root':remote_root,'bouquets':[remote_bq]}
+     plan=p.build_plan([130,192],remote)
+     assert plan['checked']==2, plan
+     assert len(plan['ref_changes'])==2, plan['ref_changes']
+-    assert plan['per_position'][130]['changed']==1
+-    assert plan['per_position'][192]['changed']==1
++    assert plan['new_channels_planned']==2, plan['new_channels']
++    assert plan['per_position'][130]['added']==1
++    assert plan['per_position'][192]['added']==1
++    assert plan['matched_bouquets']==1
+ 
+     backup=p.make_backup()
+-    added=0
++    added_db=0
+     for db in plan['databases']:
+-        added += p.append_records_to_database(db,plan['db_service_additions'],plan['db_transponder_additions'])
+-    changed=p.write_bouquet_changes(plan)
+-    assert changed==1
++        added_db += p.append_records_to_database(db,plan['db_service_additions'],plan['db_transponder_additions'])
++    changed,added,retained=p.write_bouquet_changes(plan)
++    assert changed==1 and added==2 and retained==0, (changed,added,retained)
++    footer=p.update_main_bouquet_footer()
++    assert footer >= 1
++
+     text=open(os.path.join(e2,'userbouquet.test.tv'),'rb').read().decode('utf-8')
+     assert '#SERVICE 1:0:19:101:1001:1:820000:0:0:0:' in text
+     assert '#service 1:0:1:201:2001:1:c00000:0:0:0:' in text.lower()
+-    assert 'nowe kanały' not in text
+-    assert len(text.splitlines())==5
++    assert '#DESCRIPTION ........ nowe kanały - PP Channel Sync ........' in text
++    assert '#DESCRIPTION Nowy 13E' in text and '#DESCRIPTION Nowy 19E' in text
++    assert '#DESCRIPTION ........ koniec - PP Channel Sync ........' in text
++    assert text.count('nowe kanały - PP Channel Sync')==1
++
++    main=open(os.path.join(e2,'bouquets.tv'),'rb').read().decode('utf-8')
++    assert '@ Vhannibal' not in main
++    assert '#DESCRIPTION @ PP Channel Sync' in main
++
+     check5=p.parse_lamedb(os.path.join(e2,'lamedb5'))
+     assert ('19','101','1001','1','820000') in check5['services']
+-    # lamedb5 writer must keep type 19, never write decimal 25 in type field.
++    assert ('1','102','1002','1','820000') in check5['services']
++    assert ('1','202','2002','1','c00000') in check5['services']
+     raw='\n'.join(check5['services'][('19','101','1001','1','820000')]['raw'])
+     assert ':19:' in raw and ':25:' not in raw
+     check4=p.parse_lamedb(os.path.join(e2,'lamedb'))
+     assert ('19','101','1001','1','820000') in check4['services']
+ 
+-    # Legacy block cleanup is exact and does not touch normal lines before it.
++    # Repeated run must refresh one owned block, not duplicate channels/markers.
++    plan2=p.build_plan([130,192],remote)
++    assert plan2['new_channels_planned']==0, plan2['new_channels']
++    assert plan2['retained_owned_channels']==2
++    changed2,added2,retained2=p.write_bouquet_changes(plan2)
++    assert added2==0 and retained2==2
++    text2=open(os.path.join(e2,'userbouquet.test.tv'),'rb').read().decode('utf-8')
++    assert text2.count('nowe kanały - PP Channel Sync')==1
++    assert text2.count('#DESCRIPTION Nowy 13E')==1
++    assert text2.count('#DESCRIPTION Nowy 19E')==1
++
++    # Moving an owned channel above the block removes its duplicate from owned block.
++    lines=text2.splitlines()
++    base,owned,found=p.extract_owned_new_channel_block(lines)
++    assert found==1 and len(owned)==2
++    base.extend([owned[0]['service_line'],owned[0]['description_line']])
++    base.extend(p.build_owned_new_channel_block(owned))
++    write(os.path.join(e2,'userbouquet.test.tv'),'\n'.join(base)+'\n')
++    plan3=p.build_plan([130,192],remote)
++    owned_out=plan3['files'][os.path.join(e2,'userbouquet.test.tv')]['owned_items']
++    assert sum(1 for x in owned_out if x.get('name')=='Nowy 13E')==0
++
++    # Legacy cleanup remains explicit and exact.
+     write(os.path.join(e2,'userbouquet.legacy.tv'), '''#NAME Legacy
+ #SERVICE 1:0:1:1:1:1:820000:0:0:0:
+ #DESCRIPTION Keep Me
+@@ -148,21 +207,7 @@
+     legacy=open(os.path.join(e2,'userbouquet.legacy.tv'),'rb').read().decode('utf-8')
+     assert 'Keep Me' in legacy and 'Bad Added' not in legacy
+ 
+-    # Same-core alias repairs missing lamedb entry without changing bouquet reference.
+-    write(os.path.join(e2,'userbouquet.alias.tv'), '''#NAME Alias
+-#SERVICE 1:0:1:101:1001:1:820000:0:0:0:
+-#DESCRIPTION Kanał A
+-''')
+-    plan2=p.build_plan([130],remote)
+-    assert any(x['key'][0]=='1' for x in plan2['aliases'])
+-
+-
+-    # Exact remote reference but missing local database record must be repaired.
+     p.restore_backup(backup)
+-    write(os.path.join(e2,'userbouquet.exact_missing.tv'), "#NAME Exact Missing\n#SERVICE 1:0:19:101:1001:1:820000:0:0:0:\n#DESCRIPTION Kanał A\n")
+-    plan3=p.build_plan([130],remote)
+-    assert any(x['key']==('19','101','1001','1','820000') for x in plan3['aliases'])
+-
+     print('ALL TESTS PASSED')
+ finally:
+     shutil.rmtree(root,ignore_errors=True)
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/update.json /mnt/data/PPChannelSync-Plugin-2.1.0/update.json
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/update.json	2026-07-17 17:02:31.986673031 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/update.json	2026-07-17 17:39:42.014256321 +0000
+@@ -1,13 +1,14 @@
+ {
+-  "version": "2.0.1",
+-  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.0.1_all.ipk",
+-  "sha256": "9b2d4d1bf8f92204e390002686764737b4e75d0f30fee56428aa8b55a69b9e97",
++  "version": "2.1.0",
++  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.0_all.ipk",
++  "sha256": "662fb5b88f00d1e8b77a24701979f70d63b57823bd64675d23deff79d37ca7fc",
+   "notes": [
+-    "Naprawiono GSOD po anulowaniu wyboru satelitów.",
+-    "Wykrywanie satelitów łączy bukiety, lamedb/lamedb5 i konfigurację głowic.",
+-    "Usunięto błąd pokazywania tylko pierwszej pozycji orbitalnej.",
+-    "Przywrócono czytelny interfejs i widoczne opisy kolorowych przycisków.",
+-    "Dodano raport techniczny, ręczną kopię, diagnostykę i paczkę wsparcia ZIP.",
+-    "Zachowano bezpieczny silnik bez automatycznego dodawania i usuwania kanałów."
++    "Przywrócono dopisywanie nowych kanałów na końcu pasujących bukietów.",
++    "Nowe kanały są wykrywane i filtrowane osobno dla każdej zaznaczonej satelity.",
++    "Kolejne uruchomienie nie dubluje kanałów ani markerów PP Channel Sync.",
++    "Zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki.",
++    "Przywrócono aktualną datę i podpis PP Channel Sync na dole widoku bukietów.",
++    "Każdy dopisywany kanał otrzymuje zweryfikowany wpis w lamedb lub lamedb5.",
++    "Zachowano pełną kopię bezpieczeństwa i automatyczny rollback po błędzie."
+   ]
+ }
+diff -ruN '--exclude=packages' '--exclude=release/build' '--exclude=__pycache__' /mnt/data/PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py /mnt/data/PPChannelSync-Plugin-2.1.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
+--- /mnt/data/PPChannelSync-Plugin-2.0.1/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 17:00:39.464284600 +0000
++++ /mnt/data/PPChannelSync-Plugin-2.1.0/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 17:39:24.152366911 +0000
+@@ -1,6 +1,6 @@
+ # -*- coding: utf-8 -*-
+ # PP Channel Sync for Enigma2 Python 2/3
+-# Ground-up 2.x core: safe correction of existing DVB-S services only.
++# PP Channel Sync 2.1 core: multi-satellite correction with controlled new-channel blocks.
+ # Author: by Paweł Pawełek
+ 
+ from __future__ import print_function, unicode_literals
+@@ -34,7 +34,7 @@
+ from Components.Label import Label
+ from Components.MenuList import MenuList
+ 
+-PLUGIN_VERSION = "2.0.1"
++PLUGIN_VERSION = "2.1.0"
+ PLUGIN_NAME = "PP Channel Sync"
+ AUTHOR = "by Paweł Pawełek"
+ CONTACT = "aio-iptv@wp.pl"
+@@ -108,7 +108,7 @@
+     "Pomóż rozwijać\nlokalne projekty": "Help develop\nlocal projects",
+     "Nie wybrano żadnej satelity.": "No satellite was selected.",
+     "Wybierz pozycje orbitalne, które mają zostać sprawdzone. OK zaznacza lub odznacza pozycję.": "Select orbital positions to check. OK toggles a position.",
+-    "Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.": "The plugin updates only existing DVB-S entries in your bouquets. It does not add channels, remove channels, rename bouquets or add markers.",
++    "Wtyczka poprawia istniejące kanały DVB-S i dopisuje pewne nowe kanały na końcu pasujących bukietów. Nie usuwa kanałów i nie zmienia kolejności istniejących pozycji.": "The plugin corrects existing DVB-S channels and appends verified new channels to the end of matching bouquets. It does not remove channels or reorder existing entries.",
+ }
+ 
+ 
+@@ -593,11 +593,77 @@
+     return orbital_from_namespace(key[4] if key else "0")
+ 
+ 
+-def parse_bouquet(path, databases):
+-    lines = read_text(path).splitlines()
++def marker_service_line(line):
++    if not (line or "").startswith("#SERVICE "):
++        return False
++    ref = line[9:].strip()
++    if "FROM BOUQUET" in ref:
++        return False
++    parts = ref.split(":")
++    return len(parts) >= 2 and norm_hex(parts[1]) in ("64", "832")
++
++
++def new_block_start(description):
++    value = normalize_name(description)
++    return "pp channel sync" in value and "nowe kanaly" in value
++
++
++def new_block_end(description):
++    value = normalize_name(description)
++    return "pp channel sync" in value and "koniec" in value
++
++
++def extract_owned_new_channel_block(lines):
++    """Remove only PP Channel Sync-owned new-channel blocks.
++
++    Existing channels are returned as structured items so a later run can
++    rebuild one clean block without duplicating markers or deleting channels.
++    Legacy 1.x blocks without an explicit end marker are supported when they
++    are located at the end of a bouquet.
++    """
++    source = list(lines or [])
++    base = []
++    owned = []
++    found = 0
++    idx = 0
++    while idx < len(source):
++        line = source[idx]
++        desc = source[idx + 1][13:].strip() if idx + 1 < len(source) and source[idx + 1].startswith("#DESCRIPTION ") else ""
++        if marker_service_line(line) and new_block_start(desc):
++            found += 1
++            idx += 2
++            while idx < len(source):
++                current = source[idx]
++                next_desc = source[idx + 1][13:].strip() if idx + 1 < len(source) and source[idx + 1].startswith("#DESCRIPTION ") else ""
++                if marker_service_line(current) and new_block_end(next_desc):
++                    idx += 2
++                    break
++                if current.startswith("#SERVICE "):
++                    ref = current[9:].strip()
++                    key = key_from_ref(ref)
++                    if key and not is_iptv_ref(ref) and not terrestrial_namespace(key[4]):
++                        name = next_desc if usable_name(next_desc) else ""
++                        owned.append({
++                            "service_line": "#SERVICE %s" % ref,
++                            "description_line": "#DESCRIPTION %s" % name if name else "",
++                            "ref": ref,
++                            "key": key,
++                            "name": name,
++                        })
++                        idx += 2 if next_desc else 1
++                        continue
++                # Legacy blocks had no end marker and were always appended at EOF.
++                idx += 1
++            continue
++        base.append(line)
++        idx += 1
++    return base, owned, found
++
++
++def parse_bouquet_lines(path, lines, databases):
+     entries = []
+     pending = None
+-    for idx, line in enumerate(lines):
++    for idx, line in enumerate(lines or []):
+         if line.startswith("#SERVICE "):
+             ref = line[9:].strip()
+             pending = None
+@@ -626,7 +692,100 @@
+             pending = None
+         elif not line.startswith("#DESCRIPTION "):
+             pending = None
+-    return lines, entries
++    return entries
++
++
++def parse_bouquet(path, databases):
++    lines = read_text(path).splitlines()
++    return lines, parse_bouquet_lines(path, lines, databases)
++
++
++def bouquet_title(lines, path=""):
++    for line in lines or []:
++        if line.startswith("#NAME"):
++            value = line[5:].strip()
++            if value:
++                return value
++    name = os.path.basename(path or "")
++    return name.replace("userbouquet.", "").replace(".tv", "").replace("_", " ")
++
++
++def bouquet_match_key(value):
++    text = normalize_name(value)
++    text = text.replace("+", " plus ")
++    replacements = {
++        "canal plus": "canalplus", "cyfra plus": "canalplus",
++        "polsat box": "polsatbox", "cyfrowy polsat": "polsatbox",
++        "wiadomosci": "informacyjne", "news": "informacyjne", "notizie": "informacyjne",
++        "filmy": "film", "cinema": "film", "kino": "film",
++        "dzieci": "kids", "bambini": "kids",
++        "muzyka": "music", "musica": "music",
++        "sporty": "sport", "sports": "sport",
++        "polska": "polskie", "polish": "polskie", "poland": "polskie",
++    }
++    for src, dst in replacements.items():
++        text = text.replace(src, dst)
++    text = text.replace("13.0e", "13e").replace("19.2e", "19e")
++    return re.sub(r"[^a-z0-9]+", "", text)
++
++
++def remote_bouquet_files(root):
++    result = []
++    for base, _dirs, files in os.walk(root or ""):
++        for name in files:
++            low = name.lower()
++            if low.startswith("userbouquet.") and low.endswith(".tv"):
++                result.append(os.path.join(base, name))
++    return sorted(result)
++
++
++def remote_bouquet_index(remote):
++    db = remote.get("db") or {}
++    items = []
++    for path in remote.get("bouquets") or remote_bouquet_files(remote.get("root")):
++        try:
++            lines = read_text(path).splitlines()
++            entries = parse_bouquet_lines(path, lines, [db])
++            if not entries:
++                continue
++            title = bouquet_title(lines, path)
++            names = set([normalize_name(x.get("name")) for x in entries if usable_name(x.get("name"))])
++            positions = set([x.get("orbit") for x in entries if x.get("orbit")])
++            items.append({"path": path, "title": title, "key": bouquet_match_key(title), "entries": entries, "names": names, "positions": positions})
++        except Exception:
++            pass
++    return items
++
++
++def find_remote_bouquet(local_title, local_entries, remote_items, selected_positions):
++    local_names = set([normalize_name(x.get("name")) for x in local_entries if usable_name(x.get("name"))])
++    local_key = bouquet_match_key(local_title)
++    local_positions = set([x.get("orbit") for x in local_entries if x.get("orbit") in selected_positions])
++    best = None
++    best_rank = None
++    for item in remote_items or []:
++        if local_positions and not local_positions.intersection(item.get("positions") or set()):
++            continue
++        item_key = item.get("key") or ""
++        overlap = len(local_names.intersection(item.get("names") or set()))
++        ratio = float(overlap) / float(max(1, len(local_names)))
++        exact_title = bool(local_key and item_key and local_key == item_key)
++        related_title = bool(local_key and item_key and (local_key in item_key or item_key in local_key))
++        rank = (2 if exact_title else 1 if related_title else 0, overlap, ratio)
++        if best_rank is None or rank > best_rank:
++            best = item
++            best_rank = rank
++    if not best or best_rank is None:
++        return None
++    title_rank, overlap, ratio = best_rank
++    if title_rank == 2:
++        return best
++    if title_rank == 1 and overlap >= 3:
++        return best
++    threshold = max(5, int(len(local_names) * 0.25))
++    if overlap >= threshold and ratio >= 0.20:
++        return best
++    return None
+ 
+ 
+ def configured_positions_from_settings(path=None):
+@@ -811,6 +970,13 @@
+     ensure_dir(WORK_DIR)
+ 
+ 
++def remote_needed_file(name):
++    low = str(name or "").lower()
++    if low in ("lamedb", "lamedb5", "bouquets.tv"):
++        return True
++    return low.startswith("userbouquet.") and low.endswith(".tv")
++
++
+ def load_gioppygio_motor():
+     listing = fetch_json(GIOPPYGIO_API)
+     if not isinstance(listing, list):
+@@ -818,21 +984,28 @@
+     wanted = []
+     for item in listing:
+         name = str(item.get("name", ""))
+-        if item.get("type") == "file" and name.lower() in ("lamedb", "lamedb5"):
++        if item.get("type") == "file" and remote_needed_file(name):
+             wanted.append(item)
+-    if not wanted:
++    if not any(str(x.get("name", "")).lower() in ("lamedb", "lamedb5") for x in wanted):
+         raise Exception("W źródle GioppyGio nie znaleziono lamedb ani lamedb5.")
+     root = os.path.join(WORK_DIR, "gioppygio")
+     ensure_dir(root)
++    errors = []
+     for item in wanted:
+         url = item.get("download_url")
+         if not url:
+             continue
+-        data = download_bytes(url)
+-        with open(os.path.join(root, os.path.basename(item.get("name"))), "wb") as handle:
+-            handle.write(data)
++        try:
++            data = download_bytes(url)
++            with open(os.path.join(root, os.path.basename(item.get("name"))), "wb") as handle:
++                handle.write(data)
++        except Exception as exc:
++            errors.append("%s: %s" % (item.get("name"), str(exc)))
+     db = choose_remote_database(root)
+-    return {"label": "GioppyGio Motor 75E-45W", "db": db, "root": root}
++    bouquets = remote_bouquet_files(root)
++    if not bouquets:
++        raise Exception("Źródło GioppyGio nie udostępniło bukietów TV potrzebnych do dopisywania nowych kanałów.%s" % ("\n" + "\n".join(errors) if errors else ""))
++    return {"label": "GioppyGio Motor 75E-45W", "db": db, "root": root, "bouquets": bouquets}
+ 
+ 
+ def ciefp_date_key(name):
+@@ -864,7 +1037,10 @@
+     root = os.path.join(WORK_DIR, "ciefp")
+     extract_archive(archive, root)
+     db = choose_remote_database(root)
+-    return {"label": str(chosen.get("name")), "db": db, "root": root}
++    bouquets = remote_bouquet_files(root)
++    if not bouquets:
++        raise Exception("Paczka Ciefp nie zawiera bukietów TV potrzebnych do dopisywania nowych kanałów.")
++    return {"label": str(chosen.get("name")), "db": db, "root": root, "bouquets": bouquets}
+ 
+ 
+ def load_remote_motor():
+@@ -905,9 +1081,11 @@
+     if not selected:
+         raise Exception(_("Nie wybrano żadnej satelity."))
+     exact, core_index, name_index = remote_indexes(remote["db"])
++    remote_bouquets = remote_bouquet_index(remote)
+     plan = {
+         "databases": databases,
+         "remote": remote,
++        "remote_bouquets": remote_bouquets,
+         "selected": selected,
+         "files": OrderedDict(),
+         "db_service_additions": OrderedDict(),
+@@ -918,26 +1096,34 @@
+         "aliases": [],
+         "unmatched": [],
+         "ambiguous": [],
++        "new_channels": [],
++        "new_channels_planned": 0,
++        "retained_owned_channels": 0,
++        "matched_bouquets": 0,
++        "unmatched_bouquets": [],
+         "missing_remote_positions": [],
+         "per_position": OrderedDict(),
+     }
+     remote_positions = remote.get("positions") or set()
+     for pos in sorted(selected):
+-        plan["per_position"][pos] = {"checked": 0, "changed": 0, "aliases": 0, "unmatched": 0, "ambiguous": 0}
++        plan["per_position"][pos] = {"checked": 0, "changed": 0, "aliases": 0, "unmatched": 0, "ambiguous": 0, "added": 0}
+         if pos not in remote_positions:
+             plan["missing_remote_positions"].append(pos)
+ 
+     for path in bouquet_files():
+         try:
+-            lines, entries = parse_bouquet(path, databases)
++            original_lines = read_text(path).splitlines()
++            base_lines, old_owned, owned_blocks = extract_owned_new_channel_block(original_lines)
++            entries = parse_bouquet_lines(path, base_lines, databases)
+         except Exception:
+             continue
+         changes = {}
++        local_positions = set([x.get("orbit") for x in entries if x.get("orbit") in selected])
+         for entry in entries:
+             pos = entry.get("orbit")
+             if pos not in selected:
+                 continue
+-            stats = plan["per_position"].setdefault(pos, {"checked": 0, "changed": 0, "aliases": 0, "unmatched": 0, "ambiguous": 0})
++            stats = plan["per_position"].setdefault(pos, {"checked": 0, "changed": 0, "aliases": 0, "unmatched": 0, "ambiguous": 0, "added": 0})
+             stats["checked"] += 1
+             plan["checked"] += 1
+             current_key = entry["key"]
+@@ -989,8 +1175,80 @@
+                 plan["ref_changes"].append({"path": path, "name": name, "old_ref": entry.get("ref"), "new_ref": new_ref, "position": pos})
+                 stats["changed"] += 1
+             add_db_record(plan, target_key, source_record)
+-        if changes:
+-            plan["files"][path] = {"lines": lines, "changes": changes}
++
++        # Preserve channels already owned by a previous PP Channel Sync block,
++        # but drop duplicates which the user moved into the normal bouquet area.
++        base_keys = set([x.get("key") for x in entries if x.get("key")])
++        base_names = set([normalize_name(x.get("name")) for x in entries if usable_name(x.get("name"))])
++        retained = []
++        for item in old_owned:
++            key = item.get("key")
++            name = normalize_name(item.get("name")) if usable_name(item.get("name")) else ""
++            if key in base_keys or (name and name in base_names):
++                continue
++            retained.append(item)
++            base_keys.add(key)
++            if name:
++                base_names.add(name)
++            source_record = exact.get(key)
++            if source_record and not any(key in (db.get("services") or {}) for db in databases):
++                add_db_record(plan, key, source_record)
++        plan["retained_owned_channels"] += len(retained)
++
++        local_title = bouquet_title(base_lines, path)
++        remote_item = find_remote_bouquet(local_title, entries, remote_bouquets, selected)
++        new_items = []
++        refresh_owned = False
++        if remote_item and local_positions:
++            plan["matched_bouquets"] += 1
++            refresh_owned = True
++            existing_keys = set(base_keys)
++            existing_cores = set([key_core(x) for x in existing_keys if x])
++            existing_names = set(base_names)
++            for remote_entry in remote_item.get("entries") or []:
++                pos = remote_entry.get("orbit")
++                if pos not in selected or pos not in local_positions:
++                    continue
++                key = remote_entry.get("key")
++                record = exact.get(key)
++                ref = remote_entry.get("ref") or ref_from_key(key)
++                name = remote_entry.get("name") or (record.get("name") if record else "") or ref
++                normalized = normalize_name(name) if usable_name(name) else ""
++                if not key or not record or not valid_dvb_ref(ref):
++                    continue
++                if key in existing_keys or key_core(key) in existing_cores or (normalized and normalized in existing_names):
++                    continue
++                item = {
++                    "service_line": "#SERVICE %s" % ref,
++                    "description_line": "#DESCRIPTION %s" % name,
++                    "ref": ref,
++                    "key": key,
++                    "name": name,
++                    "position": pos,
++                    "remote_bouquet": remote_item.get("title") or "",
++                }
++                new_items.append(item)
++                plan["new_channels"].append({"path": path, "bouquet": local_title, "name": name, "ref": ref, "position": pos, "remote_bouquet": remote_item.get("title") or ""})
++                plan["new_channels_planned"] += 1
++                plan["per_position"][pos]["added"] += 1
++                existing_keys.add(key)
++                existing_cores.add(key_core(key))
++                if normalized:
++                    existing_names.add(normalized)
++                add_db_record(plan, key, record)
++        elif entries and local_positions:
++            plan["unmatched_bouquets"].append(local_title)
++
++        owned_items = retained + new_items
++        if changes or owned_blocks or new_items:
++            plan["files"][path] = {
++                "original_lines": original_lines,
++                "lines": base_lines,
++                "changes": changes,
++                "owned_items": owned_items,
++                "refresh_owned": refresh_owned,
++                "remote_title": remote_item.get("title") if remote_item else "",
++            }
+     return plan
+ 
+ 
+@@ -1114,11 +1372,52 @@
+     return len(expected_services)
+ 
+ 
++def build_owned_new_channel_block(items):
++    clean = []
++    seen = set()
++    for item in items or []:
++        ref = (item.get("ref") or "").strip()
++        if not valid_dvb_ref(ref) or ref in seen:
++            continue
++        seen.add(ref)
++        name = item.get("name") or ""
++        service_line = item.get("service_line") or ("#SERVICE %s" % ref)
++        description_line = item.get("description_line") or ("#DESCRIPTION %s" % name)
++        clean.append((service_line, description_line))
++    if not clean:
++        return []
++    lines = [
++        "#SERVICE 1:64:0:0:0:0:0:0:0:0:",
++        "#DESCRIPTION ........ nowe kanały - PP Channel Sync ........",
++    ]
++    for service_line, description_line in clean:
++        lines.append(service_line)
++        if description_line:
++            lines.append(description_line)
++    lines.extend([
++        "#SERVICE 1:64:0:0:0:0:0:0:0:0:",
++        "#DESCRIPTION ........ koniec - PP Channel Sync ........",
++    ])
++    return lines
++
++
++def validate_bouquet_output(path, lines):
++    for line in lines or []:
++        raw = line.strip()
++        if raw and not raw.startswith("#") and re.match(r"^[0-9a-fA-F]+(?::[0-9a-fA-F]+){5,}$", raw):
++            raise Exception("W bukiecie wykryto surowy wpis lamedb: %s" % raw)
++        if raw.startswith("#SERVICE ") and "FROM BOUQUET" not in raw and not marker_service_line(raw):
++            ref = raw[9:].strip()
++            if not is_iptv_ref(ref) and key_from_ref(ref) is None:
++                raise Exception("Zablokowano niepoprawny service reference w %s: %s" % (path, ref))
++
++
+ def write_bouquet_changes(plan):
+     changed = 0
++    added = 0
++    retained = 0
+     for path, item in plan.get("files", {}).items():
+         lines = list(item.get("lines") or [])
+-        original_count = len(lines)
+         for idx, value in item.get("changes", {}).items():
+             if idx < 0 or idx >= len(lines) or not value.startswith("#SERVICE "):
+                 raise Exception("Niepoprawny plan zapisu bukietu %s." % path)
+@@ -1126,19 +1425,96 @@
+             if not valid_dvb_ref(ref):
+                 raise Exception("Zablokowano niepoprawny service reference: %s" % ref)
+             lines[idx] = value
+-        if len(lines) != original_count:
+-            raise Exception("Zablokowano zmianę liczby linii w bukiecie %s." % path)
+-        # Guard against the old failure: never write a raw lamedb record as visible bouquet text.
+-        for line in lines:
+-            raw = line.strip()
+-            if raw and not raw.startswith("#") and re.match(r"^[0-9a-fA-F]+(?::[0-9a-fA-F]+){5,}$", raw):
+-                raise Exception("W bukiecie wykryto surowy wpis lamedb: %s" % raw)
++        owned_items = item.get("owned_items") or []
++        block = build_owned_new_channel_block(owned_items)
++        if block:
++            lines.extend(block)
++        validate_bouquet_output(path, lines)
++        expected_refs = set([x.get("ref") for x in owned_items if x.get("ref")])
++        new_refs = set([x.get("ref") for x in plan.get("new_channels", []) if x.get("path") == path])
++        added += len(new_refs)
++        retained += max(0, len(expected_refs) - len(new_refs))
++        original = item.get("original_lines") or []
++        if lines == original:
++            continue
+         atomic_write(path, "\n".join(lines) + "\n")
+         verify_lines = read_text(path).splitlines()
+-        if len(verify_lines) != original_count:
+-            raise Exception("Weryfikacja bukietu %s nie powiodła się." % path)
++        validate_bouquet_output(path, verify_lines)
++        actual_refs = set([x[9:].strip() for x in verify_lines if x.startswith("#SERVICE ")])
++        missing = expected_refs.difference(actual_refs)
++        if missing:
++            raise Exception("Weryfikacja dopisanych kanałów w %s nie powiodła się: %s" % (path, ", ".join(sorted(missing))))
+         changed += 1
+-    return changed
++    return changed, added, retained
++
++
++def polish_date_stamp():
++    months = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"]
++    try:
++        return "%d %s %s" % (int(time.strftime("%d")), months[int(time.strftime("%m")) - 1], time.strftime("%Y"))
++    except Exception:
++        return time.strftime("%d.%m.%Y")
++
++
++def credit_description(value):
++    text = normalize_name(value)
++    if not text:
++        return False
++    if "pp channel sync" in text:
++        return True
++    creators = ("bzyk83", "bzyk3", "vhannibal", "vannibal", "hannibal", "jakitaki", "jaki taki", "anom", "matzg", "satvenus", "e2settings", "ciefp", "gioppygio")
++    if any(x in text for x in creators):
++        return True
++    if re.search(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b", text):
++        return True
++    polish_months = "stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|wrzesnia|pazdziernika|listopada|grudnia"
++    if re.search(r"\b\d{1,2}\s+(?:%s)\s+\d{4}\b" % polish_months, text):
++        return True
++    return text.startswith("@ ") or text.startswith("© ")
++
++
++def update_main_bouquet_footer():
++    path = os.path.join(E2_PATH, "bouquets.tv")
++    if not os.path.isfile(path):
++        return 0
++    lines = read_text(path).splitlines()
++    out = []
++    removed = 0
++    idx = 0
++    while idx < len(lines):
++        line = lines[idx]
++        next_desc = lines[idx + 1][13:].strip() if idx + 1 < len(lines) and lines[idx + 1].startswith("#DESCRIPTION ") else ""
++        if line.startswith("#SERVICE ") and "FROM BOUQUET" in line:
++            out.append(line)
++            if next_desc:
++                out.append(lines[idx + 1])
++                idx += 2
++            else:
++                idx += 1
++            continue
++        if marker_service_line(line) and next_desc and credit_description(next_desc):
++            removed += 1
++            idx += 2
++            continue
++        if line.startswith("#DESCRIPTION ") and credit_description(line[13:].strip()):
++            removed += 1
++            idx += 1
++            continue
++        out.append(line)
++        idx += 1
++    footer = [
++        "#SERVICE 1:64:0:0:0:0:0:0:0:0:",
++        "#DESCRIPTION ........ %s ........" % polish_date_stamp(),
++        "#SERVICE 1:64:0:0:0:0:0:0:0:0:",
++        "#DESCRIPTION @ PP Channel Sync",
++    ]
++    out.extend(footer)
++    validate_bouquet_output(path, out)
++    atomic_write(path, "\n".join(out) + "\n")
++    verify = read_text(path)
++    if "#DESCRIPTION @ PP Channel Sync" not in verify:
++        raise Exception("Nie udało się zweryfikować podpisu PP Channel Sync w bouquets.tv.")
++    return removed + 1
+ 
+ 
+ def backup_sources():
+@@ -1297,7 +1673,7 @@
+         return False
+ 
+ 
+-def write_report(plan, mode, backup=None, changed_files=0, db_added=0, legacy=None):
++def write_report(plan, mode, backup=None, changed_files=0, db_added=0, legacy=None, added_channels=0, retained_channels=0, footer_updates=0):
+     lines = []
+     details = []
+     lines.append("PP Channel Sync v%s" % PLUGIN_VERSION)
+@@ -1313,26 +1689,37 @@
+     lines.append("Naprawione brakujące wpisy lamedb: %d" % len(plan.get("aliases", [])))
+     lines.append("Niejednoznaczne: %d" % len(plan.get("ambiguous", [])))
+     lines.append("Bez dopasowania: %d" % len(plan.get("unmatched", [])))
+-    lines.append("Dodane kanały: 0")
+-    lines.append("Usunięte kanały: 0")
+-    lines.append("Zmienione nazwy/markery: 0")
++    lines.append("Pasujące bukiety kontrolne: %d" % plan.get("matched_bouquets", 0))
++    lines.append("Nowe kanały wykryte do dopisania: %d" % plan.get("new_channels_planned", 0))
+     if mode == MODE_SYNC:
++        lines.append("Nowe kanały dopisane na dole bukietów: %d" % added_channels)
++        lines.append("Zachowane kanały z wcześniejszego bloku wtyczki: %d" % retained_channels)
+         lines.append("Zmienione pliki bukietów: %d" % changed_files)
+         lines.append("Dopisane rekordy techniczne do baz: %d" % db_added)
++        lines.append("Podpis i data w widoku bukietów: %s" % ("zaktualizowane" if footer_updates else "bez zmian"))
+         lines.append("Kopia: %s" % (backup or "brak"))
++    else:
++        lines.append("Zapis: NIE — raport nie zmienił listy")
++    lines.append("Usunięte kanały: 0")
+     if legacy:
+         lines.append("Usunięte ślady wersji 1.x: %d plików / %d linii" % (legacy[0], legacy[1]))
+     if plan.get("missing_remote_positions"):
+         lines.append("Brak pozycji w źródle: %s" % ", ".join([orbital_label(x) for x in plan["missing_remote_positions"]]))
++    if plan.get("unmatched_bouquets"):
++        lines.append("Bukiety bez pewnego dopasowania: %d" % len(plan.get("unmatched_bouquets")))
+     lines.append("")
+     lines.append("Wynik dla każdej satelity:")
+     for pos, stat in plan.get("per_position", {}).items():
+-        lines.append("- %s: sprawdzone %d, poprawione %d, lamedb %d, niejednoznaczne %d, brak %d" % (
+-            orbital_label(pos), stat["checked"], stat["changed"], stat["aliases"], stat["ambiguous"], stat["unmatched"]
++        lines.append("- %s: sprawdzone %d, poprawione %d, lamedb %d, nowe %d, niejednoznaczne %d, brak %d" % (
++            orbital_label(pos), stat["checked"], stat["changed"], stat["aliases"], stat.get("added", 0), stat["ambiguous"], stat["unmatched"]
+         ))
+ 
+     details.extend(lines)
+     details.append("")
++    details.append("--- NOWE KANAŁY DO DOPISANIA ---")
++    for item in plan.get("new_channels", []):
++        details.append("[%s] %s -> %s | %s" % (orbital_label(item["position"]), item.get("bouquet"), item.get("name"), item.get("ref")))
++    details.append("")
+     details.append("--- POPRAWIONE REFERENCE ---")
+     for item in plan.get("ref_changes", []):
+         details.append("[%s] %s\n  %s\n  -> %s" % (orbital_label(item["position"]), item["name"], item["old_ref"], item["new_ref"]))
+@@ -1359,14 +1746,14 @@
+     try:
+         if clean_legacy:
+             legacy_result = remove_legacy_artifacts()
+-            # Rebuild plan after cleanup because line indices may have changed.
+             plan = build_plan(selected_positions, remote)
+         db_added = 0
+         for db in plan["databases"]:
+             db_added += append_records_to_database(db, plan["db_service_additions"], plan["db_transponder_additions"])
+-        changed_files = write_bouquet_changes(plan)
++        changed_files, added_channels, retained_channels = write_bouquet_changes(plan)
++        footer_updates = update_main_bouquet_footer()
+         reload_bouquets()
+-        summary = write_report(plan, mode, backup, changed_files, db_added, legacy_result)
++        summary = write_report(plan, mode, backup, changed_files, db_added, legacy_result, added_channels, retained_channels, footer_updates)
+         return summary, plan
+     except Exception:
+         try:
+@@ -1666,9 +2053,9 @@
+         sats = ", ".join([orbital_label(x) for x in sorted(self.positions)]) if self.positions else "brak"
+         return [
+             ("satellites", "%s: %s" % (_("Wybrane satelity"), sats), "Wybierz dowolną liczbę pozycji orbitalnych. Lista jest budowana z bukietów, lamedb oraz konfiguracji głowic."),
+-            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport nie zapisuje zmian. Bezpieczna korekta zmienia tylko istniejące wpisy DVB-S i brakujące rekordy techniczne."),
++            ("mode", "%s: %s" % (_("Tryb pracy"), _(MODE_LABELS[self.mode])), "Raport nie zapisuje zmian. Bezpieczna korekta poprawia istniejące wpisy i dopisuje pewne nowe kanały na końcu pasujących bukietów."),
+             ("check", _("Sprawdź listę"), "Pobiera bazę kontrolną i tworzy raport dla wszystkich zaznaczonych satelitów bez modyfikacji listy."),
+-            ("run", _("Uruchom synchronizację"), _("Wtyczka aktualizuje wyłącznie istniejące wpisy DVB-S w Twoich bukietach. Nie dodaje kanałów, nie usuwa kanałów, nie zmienia nazw bukietów i nie dopisuje markerów.")),
++            ("run", _("Uruchom synchronizację"), _("Wtyczka poprawia istniejące kanały DVB-S i dopisuje pewne nowe kanały na końcu pasujących bukietów. Nie usuwa kanałów i nie zmienia kolejności istniejących pozycji.")),
+             ("cleanup", _("Napraw ślady wersji 1.x"), "Usuwa wyłącznie rozpoznawalne bloki i błędne dopiski utworzone przez wersje 1.x. Przed operacją wykonywana jest kopia."),
+             ("report", _("Pokaż ostatni raport"), "Pokazuje czytelne podsumowanie ostatniego sprawdzenia lub korekty."),
+             ("details", _("Pokaż raport techniczny"), "Pokazuje szczegóły: zmienione reference, brakujące rekordy i wynik osobno dla każdej satelity."),
+@@ -1677,7 +2064,7 @@
+             ("diagnostics", _("Diagnostyka systemu"), "Sprawdza wykryte satelity, format bazy kanałów, liczbę usług i bukietów bez zmieniania listy."),
+             ("support", _("Przygotuj raport do wysłania"), "Tworzy archiwum ZIP z raportami i diagnostyką w /tmp/ppchannelsync_support.zip."),
+             ("update", _("Aktualizuj wtyczkę z GitHub"), "Sprawdza update.json, pobiera IPK, kontroluje SHA256 i instaluje nowszą wersję."),
+-            ("info", _("Informacje"), "Bezpieczny rdzeń wielosatelitarny: brak automatycznego dodawania i usuwania kanałów, kopia oraz rollback przy błędzie."),
++            ("info", _("Informacje"), "Bezpieczny rdzeń wielosatelitarny: dopisywanie pewnych nowych kanałów bez zmiany kolejności, brak automatycznego usuwania, kopia i rollback."),
+         ]
+ 
+     def refresh(self):
+@@ -1921,7 +2308,7 @@
+             self.popup("Nie udało się zainstalować aktualizacji:\n%s" % str(exc), MessageBox.TYPE_ERROR)
+ 
+     def show_info(self):
+-        text = "PP Channel Sync v%s\n%s\n%s\n\nZasady działania:\n- prawdziwy wybór wielu satelitów,\n- każda zaznaczona pozycja jest analizowana osobno,\n- brak automatycznego dodawania i usuwania kanałów,\n- brak zmian nazw i markerów,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie,\n- raport oraz diagnostyka do wysłania autorowi." % (PLUGIN_VERSION, AUTHOR, CONTACT)
++        text = "PP Channel Sync v%s\n%s\n%s\n\nZasady działania:\n- prawdziwy wybór wielu satelitów,\n- każda zaznaczona pozycja jest analizowana osobno,\n- nowe kanały dopisywane na końcu pasujących bukietów,\n- data i podpis PP Channel Sync na dole listy bukietów,\n- brak automatycznego usuwania kanałów,\n- natywna obsługa lamedb /4/ i lamedb5 /5/,\n- kopia i automatyczny rollback przy błędzie,\n- raport oraz diagnostyka do wysłania autorowi." % (PLUGIN_VERSION, AUTHOR, CONTACT)
+         self.popup(text)
+ 
+ 
+@@ -1932,7 +2319,7 @@
+ def Plugins(**kwargs):
+     return [PluginDescriptor(
+         name=PLUGIN_NAME,
+-        description="PP Channel Sync 2.0.1 - bezpieczna korekta wielu satelitów",
++        description="PP Channel Sync 2.1.0 - korekta wielu satelitów i nowe kanały",
+         where=PluginDescriptor.WHERE_PLUGINMENU,
+         icon="plugin.png",
+         fnc=main,
