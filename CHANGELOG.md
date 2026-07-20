@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.1
+
+- naprawiono błąd występujący tylko na części list i obrazów Enigma2;
+- lokalne, niestandardowe referencje techniczne są traktowane jako dane zastane i pozostają nietknięte;
+- walidator kontroluje wyłącznie referencje wygenerowane lub zmienione przez wtyczkę;
+- dodano test regresyjny dla wpisu `1:0:0:1E:0:0:0:0:0:0:`;
+- przygotowano wstecznie zgodny `update.json` dla aktualizatorów 1.x i 2.x;
+- instalator oraz `postinst` czyszczą skompilowany kod poprzednich wersji.
+
 ## 2.1.0
 
 - przywrócono dopisywanie nowych kanałów na końcu pasujących, istniejących bukietów;

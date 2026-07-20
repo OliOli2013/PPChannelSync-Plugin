@@ -67,7 +67,7 @@ modules['Components.Label'].Label=Label
 modules['Components.MenuList'].MenuList=MenuList
 sys.modules.update(modules)
 
-spec=importlib.util.spec_from_file_location('ppcs201_ui',PLUGIN)
+spec=importlib.util.spec_from_file_location('ppcs211_ui',PLUGIN)
 p=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p)
 

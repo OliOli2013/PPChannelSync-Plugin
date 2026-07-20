@@ -1,4 +1,4 @@
-# PP Channel Sync 2.1.0
+# PP Channel Sync 2.1.1
 
 **PP Channel Sync** to wtyczka Enigma2 służąca do bezpiecznej korekty parametrów kanałów satelitarnych oraz dopisywania pewnych nowych kanałów do istniejących bukietów użytkownika.
 
@@ -19,6 +19,15 @@ Kontakt: **aio-iptv@wp.pl**
 - natywna obsługa `lamedb /4/` i `lamedb5 /5/`;
 - pełna kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
 - zgodność z Enigma2 Python 2.7 oraz Python 3.
+
+## Poprawki 2.1.1
+
+- istniejące, niestandardowe wpisy techniczne używane przez niektóre listy i obrazy Enigma2 są zachowywane bez zmian;
+- synchronizacja nie jest już przerywana przez lokalne wpisy typu `1:0:0:1E:0:0:0:0:0:0:`;
+- rygorystyczna walidacja obejmuje wyłącznie wpisy utworzone lub zmienione przez PP Channel Sync;
+- nadal blokowane są nowe, niepoprawne referencje i surowe rekordy `lamedb`;
+- manifest aktualizacji jest zgodny zarówno ze starszym aktualizatorem 1.x, jak i z wydaniami 2.x;
+- instalacja usuwa stare pliki `pyc/pyo` i pamięć `__pycache__`, aby system nie uruchamiał poprzedniego kodu.
 
 ## Co zmieniono w 2.1.0
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-VERSION="2.1.0"
+VERSION="2.1.1"
 BUILD="$ROOT/release/build"
 CONTROL="$BUILD/control"
 DATA="$BUILD/data"
@@ -22,7 +22,7 @@ Priority: optional
 Architecture: all
 Maintainer: by Pawel Pawelek <aio-iptv@wp.pl>
 Depends: enigma2
-Description: PP Channel Sync $VERSION - multi-satellite correction, verified new channels at bouquet ends, lamedb4/lamedb5, backup and rollback, Python 2/3
+Description: PP Channel Sync $VERSION - multi-satellite correction, non-standard bouquet compatibility, lamedb4/lamedb5, backup and rollback, Python 2/3
 CONTROL
 
 cat > "$CONTROL/postinst" <<'POSTINST'

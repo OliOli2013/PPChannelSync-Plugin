@@ -85,11 +85,11 @@ s:0202:00c00000:2002:0001:1:0:0,"Nowy 19E",p:Test
 
 
 stubs()
-spec = importlib.util.spec_from_file_location('ppcs210', PLUGIN)
+spec = importlib.util.spec_from_file_location('ppcs211', PLUGIN)
 p = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p)
-assert p.PLUGIN_VERSION == '2.1.0'
-root = tempfile.mkdtemp(prefix='ppcs210_test_')
+assert p.PLUGIN_VERSION == '2.1.1'
+root = tempfile.mkdtemp(prefix='ppcs211_test_')
 try:
     e2 = os.path.join(root,'e2'); os.makedirs(e2)
     remote_root = os.path.join(root,'remote'); os.makedirs(remote_root)
@@ -98,6 +98,8 @@ try:
     write(os.path.join(e2,'bouquets.tv'), '''#NAME User - bouquets (TV)
 #SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.test.tv" ORDER BY bouquet
 #DESCRIPTION Test
+#SERVICE 1:0:0:2B:0:0:0:0:0:0:
+#DESCRIPTION Główny wpis techniczny
 #SERVICE 1:64:0:0:0:0:0:0:0:0:
 #DESCRIPTION @ Vhannibal 15.07.2026
 ''')
@@ -106,6 +108,8 @@ try:
 #DESCRIPTION Kanał A
 #SERVICE 1:0:1:200:2000:1:C00000:0:0:0:
 #DESCRIPTION Kanał B
+#SERVICE 1:0:0:1E:0:0:0:0:0:0:
+#DESCRIPTION Lokalny wpis techniczny
 ''')
     remote_path = os.path.join(remote_root,'lamedb5'); write(remote_path, remote_lamedb5())
     remote_bq = os.path.join(remote_root,'userbouquet.test.tv')
@@ -157,10 +161,25 @@ try:
     assert '#DESCRIPTION ........ nowe kanały - PP Channel Sync ........' in text
     assert '#DESCRIPTION Nowy 13E' in text and '#DESCRIPTION Nowy 19E' in text
     assert '#DESCRIPTION ........ koniec - PP Channel Sync ........' in text
+    assert '#SERVICE 1:0:0:1E:0:0:0:0:0:0:' in text
+    assert '#DESCRIPTION Lokalny wpis techniczny' in text
     assert text.count('nowe kanały - PP Channel Sync')==1
+
+    # Existing image/list-specific placeholders must pass through unchanged,
+    # while a newly introduced invalid reference must still be blocked.
+    original_lines = text.splitlines()
+    p.validate_bouquet_output(os.path.join(e2,'userbouquet.test.tv'), original_lines, original_lines)
+    blocked = False
+    try:
+        p.validate_bouquet_output(os.path.join(e2,'userbouquet.test.tv'), original_lines + ['#SERVICE 1:0:0:2A:0:0:0:0:0:0:'], original_lines)
+    except Exception:
+        blocked = True
+    assert blocked
 
     main=open(os.path.join(e2,'bouquets.tv'),'rb').read().decode('utf-8')
     assert '@ Vhannibal' not in main
+    assert '#SERVICE 1:0:0:2B:0:0:0:0:0:0:' in main
+    assert '#DESCRIPTION Główny wpis techniczny' in main
     assert '#DESCRIPTION @ PP Channel Sync' in main
 
     check5=p.parse_lamedb(os.path.join(e2,'lamedb5'))

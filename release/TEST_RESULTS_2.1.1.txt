@@ -1,0 +1,16 @@
+PP Channel Sync 2.1.1 - wyniki testów
+
+OK - kompilacja Python 3
+OK - parser lamedb /4/
+OK - parser lamedb5 /5/
+OK - synchronizacja 13E i 19.2E w jednej operacji
+OK - dopisywanie nowych kanałów do właściwego bukietu
+OK - brak duplikowania bloku PP Channel Sync
+OK - zachowanie typu usługi 0x19 w lamedb5
+OK - zachowanie lokalnego wpisu 1:0:0:1E:0:0:0:0:0:0:
+OK - blokada nowego niepoprawnego service reference
+OK - zachowanie podpisu i daty w bouquets.tv
+OK - callback wyboru satelitów bez GSOD
+OK - struktura pakietu IPK i wersja 2.1.1
+
+Nie wykonano testu na fizycznym tunerze Enigma2 ani w interpreterze Python 2.7.

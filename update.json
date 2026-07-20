@@ -1,14 +1,26 @@
 {
-  "version": "2.1.0",
-  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.0_all.ipk",
-  "sha256": "662fb5b88f00d1e8b77a24701979f70d63b57823bd64675d23deff79d37ca7fc",
+  "name": "PP Channel Sync",
+  "version": "2.1.1",
+  "latest_version": "2.1.1",
+  "date": "2026-07-20",
+  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
+  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
+  "package_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
+  "download_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
+  "sha256": "e38ab22f780cd0a9faaf71357ab6831e10f813be8086a3dfc85d0f61b9904388",
+  "size": 27980,
+  "description": "Poprawka zgodności z niestandardowymi wpisami technicznymi w bukietach Enigma2 oraz ujednolicenie aktualizacji 1.x/2.x.",
   "notes": [
-    "Przywrócono dopisywanie nowych kanałów na końcu pasujących bukietów.",
-    "Nowe kanały są wykrywane i filtrowane osobno dla każdej zaznaczonej satelity.",
-    "Kolejne uruchomienie nie dubluje kanałów ani markerów PP Channel Sync.",
-    "Zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki.",
-    "Przywrócono aktualną datę i podpis PP Channel Sync na dole widoku bukietów.",
-    "Każdy dopisywany kanał otrzymuje zweryfikowany wpis w lamedb lub lamedb5.",
-    "Zachowano pełną kopię bezpieczeństwa i automatyczny rollback po błędzie."
+    "Naprawiono przerwanie synchronizacji na listach zawierających lokalne wpisy typu 1:0:0:1E:0:0:0:0:0:0:.",
+    "Istniejące niestandardowe referencje są zachowywane bez zmian i pomijane podczas analizy DVB.",
+    "Walidacja nadal blokuje każdy niepoprawny wpis utworzony lub zmieniony przez wtyczkę.",
+    "update.json obsługuje jednocześnie aktualizatory PP Channel Sync 1.x i 2.x.",
+    "Instalator usuwa stare pliki pyc/pyo i __pycache__, aby nie uruchamiał się poprzedni kod."
+  ],
+  "changelog": [
+    "Zgodność z niestandardowymi bukietami Egami, OpenATV i pozostałych obrazów Enigma2.",
+    "Test regresyjny dla technicznych service reference.",
+    "Wstecznie zgodny manifest aktualizacji.",
+    "Czyszczenie cache Pythona podczas instalacji."
   ]
 }

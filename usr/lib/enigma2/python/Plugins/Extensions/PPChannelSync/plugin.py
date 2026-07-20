@@ -34,7 +34,7 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.MenuList import MenuList
 
-PLUGIN_VERSION = "2.1.0"
+PLUGIN_VERSION = "2.1.1"
 PLUGIN_NAME = "PP Channel Sync"
 AUTHOR = "by Paweł Pawełek"
 CONTACT = "aio-iptv@wp.pl"
@@ -1401,15 +1401,51 @@ def build_owned_new_channel_block(items):
     return lines
 
 
-def validate_bouquet_output(path, lines):
+def validate_bouquet_output(path, lines, original_lines=None):
+    """Validate only data introduced by PP Channel Sync.
+
+    Enigma2 bouquets found in the wild may contain image- or list-specific
+    placeholder references such as ``1:0:0:1E:0:0:0:0:0:0:``.  Enigma2
+    preserves these entries, but they are not normal DVB services and cannot
+    be converted to a lamedb key.  Versions 2.1.0 and earlier validated the
+    whole bouquet after writing and therefore rejected an unchanged legacy
+    entry.  That made synchronization fail only on some images/lists.
+
+    Existing non-standard lines are now treated as pass-through data.  Every
+    reference generated or modified by this plugin is still checked earlier
+    with ``valid_dvb_ref`` and is checked here again when it did not exist in
+    the original file.
+    """
+    original_lines = list(original_lines or [])
+    original_service_lines = set()
+    original_raw_lines = set()
+    for line in original_lines:
+        raw = (line or "").strip()
+        if raw.startswith("#SERVICE "):
+            original_service_lines.add(raw)
+        elif raw and not raw.startswith("#"):
+            original_raw_lines.add(raw)
+
     for line in lines or []:
-        raw = line.strip()
+        raw = (line or "").strip()
+        if "\x00" in raw:
+            raise Exception("Zablokowano uszkodzoną linię z bajtem NUL w %s." % path)
         if raw and not raw.startswith("#") and re.match(r"^[0-9a-fA-F]+(?::[0-9a-fA-F]+){5,}$", raw):
-            raise Exception("W bukiecie wykryto surowy wpis lamedb: %s" % raw)
-        if raw.startswith("#SERVICE ") and "FROM BOUQUET" not in raw and not marker_service_line(raw):
-            ref = raw[9:].strip()
-            if not is_iptv_ref(ref) and key_from_ref(ref) is None:
-                raise Exception("Zablokowano niepoprawny service reference w %s: %s" % (path, ref))
+            if raw not in original_raw_lines:
+                raise Exception("W bukiecie wykryto nowy surowy wpis lamedb: %s" % raw)
+            continue
+        if not raw.startswith("#SERVICE "):
+            continue
+        if "FROM BOUQUET" in raw or marker_service_line(raw):
+            continue
+        ref = raw[9:].strip()
+        if is_iptv_ref(ref) or valid_dvb_ref(ref):
+            continue
+        if raw in original_service_lines:
+            # Preserve list/image-specific placeholders without interpreting
+            # or modifying them.
+            continue
+        raise Exception("Zablokowano nowy niepoprawny service reference w %s: %s" % (path, ref))
 
 
 def write_bouquet_changes(plan):
@@ -1417,6 +1453,7 @@ def write_bouquet_changes(plan):
     added = 0
     retained = 0
     for path, item in plan.get("files", {}).items():
+        original = item.get("original_lines") or []
         lines = list(item.get("lines") or [])
         for idx, value in item.get("changes", {}).items():
             if idx < 0 or idx >= len(lines) or not value.startswith("#SERVICE "):
@@ -1429,17 +1466,16 @@ def write_bouquet_changes(plan):
         block = build_owned_new_channel_block(owned_items)
         if block:
             lines.extend(block)
-        validate_bouquet_output(path, lines)
+        validate_bouquet_output(path, lines, original)
         expected_refs = set([x.get("ref") for x in owned_items if x.get("ref")])
         new_refs = set([x.get("ref") for x in plan.get("new_channels", []) if x.get("path") == path])
         added += len(new_refs)
         retained += max(0, len(expected_refs) - len(new_refs))
-        original = item.get("original_lines") or []
         if lines == original:
             continue
         atomic_write(path, "\n".join(lines) + "\n")
         verify_lines = read_text(path).splitlines()
-        validate_bouquet_output(path, verify_lines)
+        validate_bouquet_output(path, verify_lines, original)
         actual_refs = set([x[9:].strip() for x in verify_lines if x.startswith("#SERVICE ")])
         missing = expected_refs.difference(actual_refs)
         if missing:
@@ -1509,7 +1545,7 @@ def update_main_bouquet_footer():
         "#DESCRIPTION @ PP Channel Sync",
     ]
     out.extend(footer)
-    validate_bouquet_output(path, out)
+    validate_bouquet_output(path, out, lines)
     atomic_write(path, "\n".join(out) + "\n")
     verify = read_text(path)
     if "#DESCRIPTION @ PP Channel Sync" not in verify:
@@ -2319,7 +2355,7 @@ def main(session, **kwargs):
 def Plugins(**kwargs):
     return [PluginDescriptor(
         name=PLUGIN_NAME,
-        description="PP Channel Sync 2.1.0 - korekta wielu satelitów i nowe kanały",
+        description="PP Channel Sync 2.1.1 - zgodność z niestandardowymi bukietami",
         where=PluginDescriptor.WHERE_PLUGINMENU,
         icon="plugin.png",
         fnc=main,

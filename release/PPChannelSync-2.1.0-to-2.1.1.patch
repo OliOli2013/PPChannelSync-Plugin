@@ -1,0 +1,520 @@
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/CHANGELOG.md /tmp/ppsync211/CHANGELOG.md
+--- /tmp/ppsync210/CHANGELOG.md	2026-07-17 17:38:29.000000000 +0000
++++ /tmp/ppsync211/CHANGELOG.md	2026-07-20 12:17:52.554786253 +0000
+@@ -1,5 +1,14 @@
+ # Changelog
+ 
++## 2.1.1
++
++- naprawiono błąd występujący tylko na części list i obrazów Enigma2;
++- lokalne, niestandardowe referencje techniczne są traktowane jako dane zastane i pozostają nietknięte;
++- walidator kontroluje wyłącznie referencje wygenerowane lub zmienione przez wtyczkę;
++- dodano test regresyjny dla wpisu `1:0:0:1E:0:0:0:0:0:0:`;
++- przygotowano wstecznie zgodny `update.json` dla aktualizatorów 1.x i 2.x;
++- instalator oraz `postinst` czyszczą skompilowany kod poprzednich wersji.
++
+ ## 2.1.0
+ 
+ - przywrócono dopisywanie nowych kanałów na końcu pasujących, istniejących bukietów;
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/MIGRATION_2.0.md /tmp/ppsync211/MIGRATION_2.0.md
+--- /tmp/ppsync210/MIGRATION_2.0.md	2026-07-17 17:38:29.000000000 +0000
++++ /tmp/ppsync211/MIGRATION_2.0.md	2026-07-20 12:17:52.555497968 +0000
+@@ -1,9 +1,9 @@
+ # Migracja do PP Channel Sync 2.1
+ 
+-1. Zainstaluj wersję 2.1.0 i uruchom ponownie GUI Enigma2.
++1. Zainstaluj wersję 2.1.1 i uruchom ponownie GUI Enigma2.
+ 2. Wybierz wszystkie używane pozycje orbitalne.
+ 3. Najpierw wykonaj `Raport bez zapisu`.
+ 4. Sprawdź liczbę nowych kanałów przewidzianych do dopisania.
+ 5. Uruchom `Bezpieczną korektę`.
+ 
+-Wersja 2.1.0 rozpoznaje stare bloki `nowe kanały - PP Channel Sync`, zachowuje poprawne kanały i przebudowuje je do jednego kontrolowanego bloku z markerem końcowym. Wtyczka nie usuwa automatycznie zwykłych kanałów użytkownika.
++Wersja 2.1.1 zachowuje wszystkie funkcje 2.1.0 i rozpoznaje stare bloki `nowe kanały - PP Channel Sync`, zachowuje poprawne kanały i przebudowuje je do jednego kontrolowanego bloku z markerem końcowym. Wtyczka nie usuwa automatycznie zwykłych kanałów użytkownika.
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/README.md /tmp/ppsync211/README.md
+--- /tmp/ppsync210/README.md	2026-07-17 17:38:29.000000000 +0000
++++ /tmp/ppsync211/README.md	2026-07-20 12:17:52.554554375 +0000
+@@ -1,4 +1,4 @@
+-# PP Channel Sync 2.1.0
++# PP Channel Sync 2.1.1
+ 
+ **PP Channel Sync** to wtyczka Enigma2 służąca do bezpiecznej korekty parametrów kanałów satelitarnych oraz dopisywania pewnych nowych kanałów do istniejących bukietów użytkownika.
+ 
+@@ -20,6 +20,15 @@
+ - pełna kopia bezpieczeństwa i automatyczny rollback po błędzie zapisu;
+ - zgodność z Enigma2 Python 2.7 oraz Python 3.
+ 
++## Poprawki 2.1.1
++
++- istniejące, niestandardowe wpisy techniczne używane przez niektóre listy i obrazy Enigma2 są zachowywane bez zmian;
++- synchronizacja nie jest już przerywana przez lokalne wpisy typu `1:0:0:1E:0:0:0:0:0:0:`;
++- rygorystyczna walidacja obejmuje wyłącznie wpisy utworzone lub zmienione przez PP Channel Sync;
++- nadal blokowane są nowe, niepoprawne referencje i surowe rekordy `lamedb`;
++- manifest aktualizacji jest zgodny zarówno ze starszym aktualizatorem 1.x, jak i z wydaniami 2.x;
++- instalacja usuwa stare pliki `pyc/pyo` i pamięć `__pycache__`, aby system nie uruchamiał poprzedniego kodu.
++
+ ## Co zmieniono w 2.1.0
+ 
+ W 2.0.x silnik był zbyt mocno ograniczony i nie wykonywał dwóch funkcji znanych z wcześniejszych wydań. W 2.1.0 przywrócono je w bezpiecznej formie:
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/README_TEST.md /tmp/ppsync211/README_TEST.md
+--- /tmp/ppsync210/README_TEST.md	2026-07-17 17:38:29.000000000 +0000
++++ /tmp/ppsync211/README_TEST.md	2026-07-20 12:17:52.555295319 +0000
+@@ -1,4 +1,4 @@
+-# Test PP Channel Sync 2.1.0
++# Test PP Channel Sync 2.1.1
+ 
+ 1. Zainstaluj IPK ręcznie i wykonaj restart GUI.
+ 2. Żółtym przyciskiem zaznacz co najmniej dwie używane satelity.
+@@ -10,3 +10,10 @@
+ 8. Na dole widoku listy bukietów powinny być aktualna data i wpis `@ PP Channel Sync`.
+ 9. Uruchom korektę drugi raz. Kanały i markery nie mogą się zdublować.
+ 10. W razie problemu utwórz `Przygotuj raport do wysłania` i pobierz `/tmp/ppchannelsync_support.zip`.
++
++## Test zgodności z niestandardowym bukietem
++
++1. W bukiecie zawierającym lokalny wpis techniczny, np. `#SERVICE 1:0:0:1E:0:0:0:0:0:0:`, uruchom raport i bezpieczną korektę.
++2. Operacja nie może zostać przerwana.
++3. Wpis techniczny i jego opis muszą pozostać bez zmian.
++4. Nowe kanały oraz podpis PP Channel Sync nadal muszą zostać zapisane prawidłowo.
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/installer.sh /tmp/ppsync211/installer.sh
+--- /tmp/ppsync210/installer.sh	2026-07-17 16:48:51.000000000 +0000
++++ /tmp/ppsync211/installer.sh	2026-07-20 12:18:50.481094682 +0000
+@@ -3,32 +3,47 @@
+ BASE="https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main"
+ MANIFEST="/tmp/ppchannelsync_update.json"
+ IPK="/tmp/enigma2-plugin-extensions-ppchannelsync_latest_all.ipk"
++STAMP="$(date +%s 2>/dev/null || echo 0)"
+ 
+ echo "PP Channel Sync - installer"
+ rm -f "$MANIFEST" "$IPK"
+ 
+-if command -v wget >/dev/null 2>&1; then
+-    wget -q --no-check-certificate -O "$MANIFEST" "$BASE/update.json" || exit 1
+-elif command -v curl >/dev/null 2>&1; then
+-    curl -L -k -sS -o "$MANIFEST" "$BASE/update.json" || exit 1
+-else
+-    echo "Brak wget i curl."
++fetch_file() {
++    SRC="$1"
++    DST="$2"
++    if command -v wget >/dev/null 2>&1; then
++        wget -q --no-check-certificate -O "$DST" "$SRC" && return 0
++    fi
++    if command -v curl >/dev/null 2>&1; then
++        curl -L -k -sS --max-time 90 -o "$DST" "$SRC" && return 0
++    fi
++    return 1
++}
++
++fetch_file "$BASE/update.json?ppcs=$STAMP" "$MANIFEST" || {
++    echo "Nie udało się pobrać update.json."
+     exit 1
+-fi
++}
+ 
+ URL="$(sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | head -n 1)"
++[ -n "$URL" ] || URL="$(sed -n 's/.*"ipk_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | head -n 1)"
+ SHA="$(sed -n 's/.*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | head -n 1)"
+ VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | head -n 1)"
++[ -n "$VERSION" ] || VERSION="$(sed -n 's/.*"latest_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | head -n 1)"
+ 
+ if [ -z "$URL" ]; then
+     echo "Nie udało się odczytać adresu IPK."
+     exit 1
+ fi
+ 
+-if command -v wget >/dev/null 2>&1; then
+-    wget -q --no-check-certificate -O "$IPK" "$URL" || exit 1
+-else
+-    curl -L -k -sS -o "$IPK" "$URL" || exit 1
++fetch_file "$URL?ppcs=$STAMP" "$IPK" || {
++    echo "Nie udało się pobrać IPK."
++    exit 1
++}
++
++if [ ! -s "$IPK" ]; then
++    echo "Pobrana paczka IPK jest pusta."
++    exit 1
+ fi
+ 
+ if [ -n "$SHA" ] && command -v sha256sum >/dev/null 2>&1; then
+@@ -40,8 +55,12 @@
+     fi
+ fi
+ 
++PLUGIN_DIR="/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync"
++rm -rf "$PLUGIN_DIR/__pycache__" 2>/dev/null || true
++rm -f "$PLUGIN_DIR"/*.pyc "$PLUGIN_DIR"/*.pyo 2>/dev/null || true
++
+ if command -v opkg >/dev/null 2>&1; then
+-    opkg install --force-reinstall "$IPK" || exit 1
++    opkg install --force-reinstall --force-overwrite "$IPK" || exit 1
+ elif command -v dpkg >/dev/null 2>&1; then
+     dpkg -i "$IPK" || exit 1
+ else
+@@ -49,6 +68,9 @@
+     exit 1
+ fi
+ 
++rm -rf "$PLUGIN_DIR/__pycache__" 2>/dev/null || true
++rm -f "$PLUGIN_DIR"/*.pyc "$PLUGIN_DIR"/*.pyo 2>/dev/null || true
++sync 2>/dev/null || true
+ rm -f "$MANIFEST" "$IPK"
+ echo "Zainstalowano PP Channel Sync ${VERSION}. Wykonaj restart GUI."
+ exit 0
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/RELEASE_MANIFEST_2.1.0.txt /tmp/ppsync211/release/RELEASE_MANIFEST_2.1.0.txt
+--- /tmp/ppsync210/release/RELEASE_MANIFEST_2.1.0.txt	2026-07-17 17:39:42.000000000 +0000
++++ /tmp/ppsync211/release/RELEASE_MANIFEST_2.1.0.txt	1970-01-01 00:00:00.000000000 +0000
+@@ -1,7 +0,0 @@
+-PP Channel Sync 2.1.0
+-
+-IPK: enigma2-plugin-extensions-ppchannelsync_2.1.0_all.ipk
+-SHA256: 662fb5b88f00d1e8b77a24701979f70d63b57823bd64675d23deff79d37ca7fc
+-GitHub update manifest: update.json
+-Installer: installer.sh
+-Main plugin: usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/RELEASE_MANIFEST_2.1.1.txt /tmp/ppsync211/release/RELEASE_MANIFEST_2.1.1.txt
+--- /tmp/ppsync210/release/RELEASE_MANIFEST_2.1.1.txt	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/ppsync211/release/RELEASE_MANIFEST_2.1.1.txt	2026-07-20 12:18:50.350632480 +0000
+@@ -0,0 +1,8 @@
++PP Channel Sync 2.1.1
++
++IPK: enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk
++SHA256: e38ab22f780cd0a9faaf71357ab6831e10f813be8086a3dfc85d0f61b9904388
++Rozmiar: 27980 bajtów
++Update manifest: update.json
++Installer: installer.sh
++Patch: PPChannelSync-2.1.0-to-2.1.1.patch
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/RELEASE_NOTES_2.1.0.md /tmp/ppsync211/release/RELEASE_NOTES_2.1.0.md
+--- /tmp/ppsync210/release/RELEASE_NOTES_2.1.0.md	2026-07-17 17:39:08.000000000 +0000
++++ /tmp/ppsync211/release/RELEASE_NOTES_2.1.0.md	1970-01-01 00:00:00.000000000 +0000
+@@ -1,15 +0,0 @@
+-# PP Channel Sync 2.1.0
+-
+-Wydanie przywraca dwie funkcje, których brakowało w gałęzi 2.0.x: dopisywanie nowych kanałów na końcu właściwych bukietów oraz aktualizację podpisu i daty w widoku listy bukietów.
+-
+-## Najważniejsze zmiany
+-
+-- pobieranie bukietów kontrolnych razem z `lamedb`/`lamedb5`;
+-- dopasowanie lokalnych i kontrolnych bukietów po nazwie oraz wspólnych kanałach;
+-- obsługa nowych kanałów osobno dla każdej zaznaczonej satelity;
+-- jeden blok `nowe kanały - PP Channel Sync` z markerem końcowym;
+-- brak duplikatów po kolejnym uruchomieniu;
+-- zachowanie kanałów dopisanych wcześniej przez wtyczkę;
+-- aktualna data i `@ PP Channel Sync` na dole `bouquets.tv`;
+-- brak automatycznego usuwania zwykłych kanałów;
+-- kopia i rollback przed każdym zapisem.
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/RELEASE_NOTES_2.1.1.md /tmp/ppsync211/release/RELEASE_NOTES_2.1.1.md
+--- /tmp/ppsync210/release/RELEASE_NOTES_2.1.1.md	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/ppsync211/release/RELEASE_NOTES_2.1.1.md	2026-07-20 12:18:50.350410786 +0000
+@@ -0,0 +1,18 @@
++# PP Channel Sync 2.1.1
++
++Wydanie naprawcze dla użytkowników, u których synchronizacja była cofana mimo poprawnej lokalnej listy.
++
++## Przyczyna
++
++Wersja 2.1.0 kontrolowała po zapisie cały bukiet, łącznie z wpisami zastanymi. Niektóre listy i obrazy Enigma2 używają własnych technicznych referencji, np. `1:0:0:1E:0:0:0:0:0:0:`. Wtyczka ich nie tworzyła ani nie zmieniała, ale uznawała je za błąd i cofała operację.
++
++## Poprawki
++
++- istniejące niestandardowe wpisy są przepuszczane bez zmian;
++- analiza kanałów nadal pomija wpisy, których nie można bezpiecznie powiązać z `lamedb`;
++- kontrolowane są wyłącznie referencje nowe lub zmienione przez PP Channel Sync;
++- niepoprawne dane wygenerowane przez wtyczkę nadal blokują zapis i uruchamiają rollback;
++- `update.json` zawiera pola zgodne z aktualizatorami 1.x oraz 2.x;
++- `postinst` usuwa stare pliki skompilowanego Pythona.
++
++SHA256 IPK: `e38ab22f780cd0a9faaf71357ab6831e10f813be8086a3dfc85d0f61b9904388`
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/TEST_RESULTS_2.1.0.txt /tmp/ppsync211/release/TEST_RESULTS_2.1.0.txt
+--- /tmp/ppsync210/release/TEST_RESULTS_2.1.0.txt	2026-07-17 17:39:08.000000000 +0000
++++ /tmp/ppsync211/release/TEST_RESULTS_2.1.0.txt	1970-01-01 00:00:00.000000000 +0000
+@@ -1,16 +0,0 @@
+-PP Channel Sync 2.1.0 - wyniki testów
+-
+-OK - kompilacja plugin.py w Python 3
+-OK - wykrywanie wielu satelitów z bukietów, lamedb i konfiguracji głowic
+-OK - osobne planowanie nowych kanałów dla 13.0E i 19.2E
+-OK - dopisanie nowych kanałów pod jednym blokiem PP Channel Sync
+-OK - brak duplikatów kanałów i markerów po drugim uruchomieniu
+-OK - zachowanie kanałów z wcześniejszego bloku wtyczki
+-OK - brak duplikatu po ręcznym przeniesieniu kanału nad blok
+-OK - aktualizacja daty i podpisu w bouquets.tv
+-OK - zapis i ponowny odczyt lamedb /4/ i lamedb5 /5/
+-OK - zachowanie typu 19 jako wartości szesnastkowej w lamedb5
+-OK - test anulowania selektora satelitów bez GSOD
+-OK - kontrola struktury IPK i sumy SHA256
+-
+-Nie wykonano testu na fizycznym tunerze Enigma2 ani w interpreterze Python 2.7.
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/TEST_RESULTS_2.1.1.txt /tmp/ppsync211/release/TEST_RESULTS_2.1.1.txt
+--- /tmp/ppsync210/release/TEST_RESULTS_2.1.1.txt	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/ppsync211/release/TEST_RESULTS_2.1.1.txt	2026-07-20 12:18:50.350558609 +0000
+@@ -0,0 +1,16 @@
++PP Channel Sync 2.1.1 - wyniki testów
++
++OK - kompilacja Python 3
++OK - parser lamedb /4/
++OK - parser lamedb5 /5/
++OK - synchronizacja 13E i 19.2E w jednej operacji
++OK - dopisywanie nowych kanałów do właściwego bukietu
++OK - brak duplikowania bloku PP Channel Sync
++OK - zachowanie typu usługi 0x19 w lamedb5
++OK - zachowanie lokalnego wpisu 1:0:0:1E:0:0:0:0:0:0:
++OK - blokada nowego niepoprawnego service reference
++OK - zachowanie podpisu i daty w bouquets.tv
++OK - callback wyboru satelitów bez GSOD
++OK - struktura pakietu IPK i wersja 2.1.1
++
++Nie wykonano testu na fizycznym tunerze Enigma2 ani w interpreterze Python 2.7.
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/release/build_ipk.sh /tmp/ppsync211/release/build_ipk.sh
+--- /tmp/ppsync210/release/build_ipk.sh	2026-07-17 17:38:30.000000000 +0000
++++ /tmp/ppsync211/release/build_ipk.sh	2026-07-20 12:17:52.555672246 +0000
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ set -eu
+ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+-VERSION="2.1.0"
++VERSION="2.1.1"
+ BUILD="$ROOT/release/build"
+ CONTROL="$BUILD/control"
+ DATA="$BUILD/data"
+@@ -22,7 +22,7 @@
+ Architecture: all
+ Maintainer: by Pawel Pawelek <aio-iptv@wp.pl>
+ Depends: enigma2
+-Description: PP Channel Sync $VERSION - multi-satellite correction, verified new channels at bouquet ends, lamedb4/lamedb5, backup and rollback, Python 2/3
++Description: PP Channel Sync $VERSION - multi-satellite correction, non-standard bouquet compatibility, lamedb4/lamedb5, backup and rollback, Python 2/3
+ CONTROL
+ 
+ cat > "$CONTROL/postinst" <<'POSTINST'
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/tests/test_core.py /tmp/ppsync211/tests/test_core.py
+--- /tmp/ppsync210/tests/test_core.py	2026-07-17 17:37:17.000000000 +0000
++++ /tmp/ppsync211/tests/test_core.py	2026-07-20 12:19:43.050181413 +0000
+@@ -85,11 +85,11 @@
+ 
+ 
+ stubs()
+-spec = importlib.util.spec_from_file_location('ppcs210', PLUGIN)
++spec = importlib.util.spec_from_file_location('ppcs211', PLUGIN)
+ p = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(p)
+-assert p.PLUGIN_VERSION == '2.1.0'
+-root = tempfile.mkdtemp(prefix='ppcs210_test_')
++assert p.PLUGIN_VERSION == '2.1.1'
++root = tempfile.mkdtemp(prefix='ppcs211_test_')
+ try:
+     e2 = os.path.join(root,'e2'); os.makedirs(e2)
+     remote_root = os.path.join(root,'remote'); os.makedirs(remote_root)
+@@ -98,6 +98,8 @@
+     write(os.path.join(e2,'bouquets.tv'), '''#NAME User - bouquets (TV)
+ #SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.test.tv" ORDER BY bouquet
+ #DESCRIPTION Test
++#SERVICE 1:0:0:2B:0:0:0:0:0:0:
++#DESCRIPTION Główny wpis techniczny
+ #SERVICE 1:64:0:0:0:0:0:0:0:0:
+ #DESCRIPTION @ Vhannibal 15.07.2026
+ ''')
+@@ -106,6 +108,8 @@
+ #DESCRIPTION Kanał A
+ #SERVICE 1:0:1:200:2000:1:C00000:0:0:0:
+ #DESCRIPTION Kanał B
++#SERVICE 1:0:0:1E:0:0:0:0:0:0:
++#DESCRIPTION Lokalny wpis techniczny
+ ''')
+     remote_path = os.path.join(remote_root,'lamedb5'); write(remote_path, remote_lamedb5())
+     remote_bq = os.path.join(remote_root,'userbouquet.test.tv')
+@@ -157,10 +161,25 @@
+     assert '#DESCRIPTION ........ nowe kanały - PP Channel Sync ........' in text
+     assert '#DESCRIPTION Nowy 13E' in text and '#DESCRIPTION Nowy 19E' in text
+     assert '#DESCRIPTION ........ koniec - PP Channel Sync ........' in text
++    assert '#SERVICE 1:0:0:1E:0:0:0:0:0:0:' in text
++    assert '#DESCRIPTION Lokalny wpis techniczny' in text
+     assert text.count('nowe kanały - PP Channel Sync')==1
+ 
++    # Existing image/list-specific placeholders must pass through unchanged,
++    # while a newly introduced invalid reference must still be blocked.
++    original_lines = text.splitlines()
++    p.validate_bouquet_output(os.path.join(e2,'userbouquet.test.tv'), original_lines, original_lines)
++    blocked = False
++    try:
++        p.validate_bouquet_output(os.path.join(e2,'userbouquet.test.tv'), original_lines + ['#SERVICE 1:0:0:2A:0:0:0:0:0:0:'], original_lines)
++    except Exception:
++        blocked = True
++    assert blocked
++
+     main=open(os.path.join(e2,'bouquets.tv'),'rb').read().decode('utf-8')
+     assert '@ Vhannibal' not in main
++    assert '#SERVICE 1:0:0:2B:0:0:0:0:0:0:' in main
++    assert '#DESCRIPTION Główny wpis techniczny' in main
+     assert '#DESCRIPTION @ PP Channel Sync' in main
+ 
+     check5=p.parse_lamedb(os.path.join(e2,'lamedb5'))
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/tests/test_ui_callbacks.py /tmp/ppsync211/tests/test_ui_callbacks.py
+--- /tmp/ppsync210/tests/test_ui_callbacks.py	2026-07-17 17:03:11.000000000 +0000
++++ /tmp/ppsync211/tests/test_ui_callbacks.py	2026-07-20 12:16:30.905386402 +0000
+@@ -67,7 +67,7 @@
+ modules['Components.MenuList'].MenuList=MenuList
+ sys.modules.update(modules)
+ 
+-spec=importlib.util.spec_from_file_location('ppcs201_ui',PLUGIN)
++spec=importlib.util.spec_from_file_location('ppcs211_ui',PLUGIN)
+ p=importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(p)
+ 
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/update.json /tmp/ppsync211/update.json
+--- /tmp/ppsync210/update.json	2026-07-17 17:39:42.000000000 +0000
++++ /tmp/ppsync211/update.json	2026-07-20 12:18:50.350132153 +0000
+@@ -1,14 +1,26 @@
+ {
+-  "version": "2.1.0",
+-  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.0_all.ipk",
+-  "sha256": "662fb5b88f00d1e8b77a24701979f70d63b57823bd64675d23deff79d37ca7fc",
++  "name": "PP Channel Sync",
++  "version": "2.1.1",
++  "latest_version": "2.1.1",
++  "date": "2026-07-20",
++  "url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
++  "ipk_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
++  "package_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
++  "download_url": "https://raw.githubusercontent.com/OliOli2013/PPChannelSync-Plugin/main/packages/enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk",
++  "sha256": "e38ab22f780cd0a9faaf71357ab6831e10f813be8086a3dfc85d0f61b9904388",
++  "size": 27980,
++  "description": "Poprawka zgodności z niestandardowymi wpisami technicznymi w bukietach Enigma2 oraz ujednolicenie aktualizacji 1.x/2.x.",
+   "notes": [
+-    "Przywrócono dopisywanie nowych kanałów na końcu pasujących bukietów.",
+-    "Nowe kanały są wykrywane i filtrowane osobno dla każdej zaznaczonej satelity.",
+-    "Kolejne uruchomienie nie dubluje kanałów ani markerów PP Channel Sync.",
+-    "Zachowywane są kanały dopisane przez wcześniejsze wykonanie wtyczki.",
+-    "Przywrócono aktualną datę i podpis PP Channel Sync na dole widoku bukietów.",
+-    "Każdy dopisywany kanał otrzymuje zweryfikowany wpis w lamedb lub lamedb5.",
+-    "Zachowano pełną kopię bezpieczeństwa i automatyczny rollback po błędzie."
++    "Naprawiono przerwanie synchronizacji na listach zawierających lokalne wpisy typu 1:0:0:1E:0:0:0:0:0:0:.",
++    "Istniejące niestandardowe referencje są zachowywane bez zmian i pomijane podczas analizy DVB.",
++    "Walidacja nadal blokuje każdy niepoprawny wpis utworzony lub zmieniony przez wtyczkę.",
++    "update.json obsługuje jednocześnie aktualizatory PP Channel Sync 1.x i 2.x.",
++    "Instalator usuwa stare pliki pyc/pyo i __pycache__, aby nie uruchamiał się poprzedni kod."
++  ],
++  "changelog": [
++    "Zgodność z niestandardowymi bukietami Egami, OpenATV i pozostałych obrazów Enigma2.",
++    "Test regresyjny dla technicznych service reference.",
++    "Wstecznie zgodny manifest aktualizacji.",
++    "Czyszczenie cache Pythona podczas instalacji."
+   ]
+ }
+diff -ruN '--exclude=packages' '--exclude=build' '--exclude=__pycache__' '--exclude=*.pyc' /tmp/ppsync210/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py /tmp/ppsync211/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py
+--- /tmp/ppsync210/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-17 17:39:24.000000000 +0000
++++ /tmp/ppsync211/usr/lib/enigma2/python/Plugins/Extensions/PPChannelSync/plugin.py	2026-07-20 12:17:52.554164449 +0000
+@@ -34,7 +34,7 @@
+ from Components.Label import Label
+ from Components.MenuList import MenuList
+ 
+-PLUGIN_VERSION = "2.1.0"
++PLUGIN_VERSION = "2.1.1"
+ PLUGIN_NAME = "PP Channel Sync"
+ AUTHOR = "by Paweł Pawełek"
+ CONTACT = "aio-iptv@wp.pl"
+@@ -1401,15 +1401,51 @@
+     return lines
+ 
+ 
+-def validate_bouquet_output(path, lines):
++def validate_bouquet_output(path, lines, original_lines=None):
++    """Validate only data introduced by PP Channel Sync.
++
++    Enigma2 bouquets found in the wild may contain image- or list-specific
++    placeholder references such as ``1:0:0:1E:0:0:0:0:0:0:``.  Enigma2
++    preserves these entries, but they are not normal DVB services and cannot
++    be converted to a lamedb key.  Versions 2.1.0 and earlier validated the
++    whole bouquet after writing and therefore rejected an unchanged legacy
++    entry.  That made synchronization fail only on some images/lists.
++
++    Existing non-standard lines are now treated as pass-through data.  Every
++    reference generated or modified by this plugin is still checked earlier
++    with ``valid_dvb_ref`` and is checked here again when it did not exist in
++    the original file.
++    """
++    original_lines = list(original_lines or [])
++    original_service_lines = set()
++    original_raw_lines = set()
++    for line in original_lines:
++        raw = (line or "").strip()
++        if raw.startswith("#SERVICE "):
++            original_service_lines.add(raw)
++        elif raw and not raw.startswith("#"):
++            original_raw_lines.add(raw)
++
+     for line in lines or []:
+-        raw = line.strip()
++        raw = (line or "").strip()
++        if "\x00" in raw:
++            raise Exception("Zablokowano uszkodzoną linię z bajtem NUL w %s." % path)
+         if raw and not raw.startswith("#") and re.match(r"^[0-9a-fA-F]+(?::[0-9a-fA-F]+){5,}$", raw):
+-            raise Exception("W bukiecie wykryto surowy wpis lamedb: %s" % raw)
+-        if raw.startswith("#SERVICE ") and "FROM BOUQUET" not in raw and not marker_service_line(raw):
+-            ref = raw[9:].strip()
+-            if not is_iptv_ref(ref) and key_from_ref(ref) is None:
+-                raise Exception("Zablokowano niepoprawny service reference w %s: %s" % (path, ref))
++            if raw not in original_raw_lines:
++                raise Exception("W bukiecie wykryto nowy surowy wpis lamedb: %s" % raw)
++            continue
++        if not raw.startswith("#SERVICE "):
++            continue
++        if "FROM BOUQUET" in raw or marker_service_line(raw):
++            continue
++        ref = raw[9:].strip()
++        if is_iptv_ref(ref) or valid_dvb_ref(ref):
++            continue
++        if raw in original_service_lines:
++            # Preserve list/image-specific placeholders without interpreting
++            # or modifying them.
++            continue
++        raise Exception("Zablokowano nowy niepoprawny service reference w %s: %s" % (path, ref))
+ 
+ 
+ def write_bouquet_changes(plan):
+@@ -1417,6 +1453,7 @@
+     added = 0
+     retained = 0
+     for path, item in plan.get("files", {}).items():
++        original = item.get("original_lines") or []
+         lines = list(item.get("lines") or [])
+         for idx, value in item.get("changes", {}).items():
+             if idx < 0 or idx >= len(lines) or not value.startswith("#SERVICE "):
+@@ -1429,17 +1466,16 @@
+         block = build_owned_new_channel_block(owned_items)
+         if block:
+             lines.extend(block)
+-        validate_bouquet_output(path, lines)
++        validate_bouquet_output(path, lines, original)
+         expected_refs = set([x.get("ref") for x in owned_items if x.get("ref")])
+         new_refs = set([x.get("ref") for x in plan.get("new_channels", []) if x.get("path") == path])
+         added += len(new_refs)
+         retained += max(0, len(expected_refs) - len(new_refs))
+-        original = item.get("original_lines") or []
+         if lines == original:
+             continue
+         atomic_write(path, "\n".join(lines) + "\n")
+         verify_lines = read_text(path).splitlines()
+-        validate_bouquet_output(path, verify_lines)
++        validate_bouquet_output(path, verify_lines, original)
+         actual_refs = set([x[9:].strip() for x in verify_lines if x.startswith("#SERVICE ")])
+         missing = expected_refs.difference(actual_refs)
+         if missing:
+@@ -1509,7 +1545,7 @@
+         "#DESCRIPTION @ PP Channel Sync",
+     ]
+     out.extend(footer)
+-    validate_bouquet_output(path, out)
++    validate_bouquet_output(path, out, lines)
+     atomic_write(path, "\n".join(out) + "\n")
+     verify = read_text(path)
+     if "#DESCRIPTION @ PP Channel Sync" not in verify:
+@@ -2319,7 +2355,7 @@
+ def Plugins(**kwargs):
+     return [PluginDescriptor(
+         name=PLUGIN_NAME,
+-        description="PP Channel Sync 2.1.0 - korekta wielu satelitów i nowe kanały",
++        description="PP Channel Sync 2.1.1 - zgodność z niestandardowymi bukietami",
+         where=PluginDescriptor.WHERE_PLUGINMENU,
+         icon="plugin.png",
+         fnc=main,

@@ -1,0 +1,8 @@
+PP Channel Sync 2.1.1
+
+IPK: enigma2-plugin-extensions-ppchannelsync_2.1.1_all.ipk
+SHA256: e38ab22f780cd0a9faaf71357ab6831e10f813be8086a3dfc85d0f61b9904388
+Rozmiar: 27980 bajtów
+Update manifest: update.json
+Installer: installer.sh
+Patch: PPChannelSync-2.1.0-to-2.1.1.patch
